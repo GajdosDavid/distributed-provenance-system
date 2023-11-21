@@ -110,12 +110,6 @@ class WasAssociatedWith(BaseProvRelNode):
     plan = RelationshipTo('Entity', 'was_associated_with', cardinality.ZeroOrOne)
 
 
-class ActedOnBehalfOf(BaseProvRelNode):
-    delegate = RelationshipFrom('Agent', 'acted_on_behalf_of', cardinality.One)
-    responsible = RelationshipTo('Agent', 'acted_on_behalf_of', cardinality.One)
-
-    activity = RelationshipTo('Activity', 'acted_on_behalf_of', cardinality.ZeroOrOne)
-
 ### Classes for main PROV-DM types ###
 class BaseProvClass(StructuredNode):
     identifier = StringProperty(required=True)
@@ -142,15 +136,15 @@ class Activity(BaseProvClass):
 
     was_informed_by = RelationshipTo('Activity', 'was_informed_by', model=WasInformedBy)
     used = RelationshipTo('Entity', 'used', model=UsedRel)
-    was_associated_with = RelationshipTo('Agen', 'was_associated_with', model=WasAssociatedWithRel)
+    was_associated_with = RelationshipTo('Agent', 'was_associated_with', model=WasAssociatedWithRel)
 
     # was_started_by?
     # was_ended_by?
 
 
 class Agent(BaseProvClass):
-    acted_on_behalf_of = RelationshipTo('Agen', 'acted_on_behalf_of', model=ActedOnBehalfOfRel)
-    
+    acted_on_behalf_of = RelationshipTo('Agent', 'acted_on_behalf_of', model=ActedOnBehalfOfRel)
+
 
 class Bundle(BaseProvClass):
     pass
