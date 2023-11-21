@@ -135,6 +135,7 @@ class Entity(BaseProvClass):
     specialization_of = RelationshipTo('Entity', 'specialization_of')
     alternate_of = RelationshipTo('Entity', 'alternate_of')
 
+
 class Activity(BaseProvClass):
     start_time = DateTimeFormatProperty()
     end_time = DateTimeFormatProperty()
@@ -149,8 +150,7 @@ class Activity(BaseProvClass):
 
 class Agent(BaseProvClass):
     acted_on_behalf_of = RelationshipTo('Agen', 'acted_on_behalf_of', model=ActedOnBehalfOfRel)
-    was_attributed_to = RelationshipFrom('Entity', 'was_attributed_to', model=WasAttributedTo)
-
+    
 
 class Bundle(BaseProvClass):
     pass
