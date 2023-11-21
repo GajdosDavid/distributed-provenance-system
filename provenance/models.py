@@ -103,15 +103,6 @@ class WasInvalidatedBy(BaseProvRelNode):
     time = DateTimeFormatProperty()
 
 
-class WasDerivedFrom(BaseProvRelNode):
-    generated_entity = RelationshipFrom('Entity', 'was_derived_from', cardinality.One)
-    used_entity = RelationshipTo('Entity', 'was_derived_from', cardinality.One)
-
-    activity = RelationshipFrom('Activity', 'was_derived_from', cardinality.ZeroOrOne)
-    generation = RelationshipTo('WasGeneratedBy', 'was_derived_from', cardinality.ZeroOrOne)
-    usage = RelationshipTo('Used', 'was_derived_from', cardinality.ZeroOrOne)
-
-
 class WasAssociatedWith(BaseProvRelNode):
     activity = RelationshipFrom('Activity', 'was_associated_with', cardinality.One)
 
