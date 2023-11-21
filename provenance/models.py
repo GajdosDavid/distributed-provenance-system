@@ -11,7 +11,6 @@ class BundledIn(StructuredRel):
 
 ### Classes representing prov-dm relations between PROV-DM types (require both nodes) ###
 class BaseProvRel(StructuredRel):
-    uid = UniqueIdProperty()
     identifier = StringProperty()
     attributes = JSONProperty()
 
@@ -56,7 +55,6 @@ class WasInfluencedBy(BaseProvRel):
 
 ### Classes representing PROV-DM relations, however are modeled as neo4j nodes because they allow absence of one of the PROV-DM types ###
 class BaseProvRelNode(StructuredNode):
-    uid = UniqueIdProperty()
     identifier = StringProperty()
     attributes = JSONProperty()
 
@@ -129,7 +127,6 @@ class ActedOnBehalfOf(BaseProvRelNode):
 
 ### Classes for main PROV-DM types ###
 class BaseProvClass(StructuredNode):
-    uid = UniqueIdProperty()
     identifier = StringProperty(required=True)
     attributes = JSONProperty()
 
