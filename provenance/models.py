@@ -55,6 +55,9 @@ class WasInfluencedByRel(BaseProvRel):
 
 ### Classes representing PROV-DM relations, however are modeled as neo4j nodes because they allow absence of one of the PROV-DM types ###
 class BaseProvRelNode(StructuredNode):
+    # avoids giving a tag 'BaseProvRelNode' in neo4j
+    __abstract_node__ = True
+
     identifier = StringProperty()
     attributes = JSONProperty()
 
@@ -112,6 +115,9 @@ class WasAssociatedWith(BaseProvRelNode):
 
 ### Classes for main PROV-DM types ###
 class BaseProvClass(StructuredNode):
+    # avoids giving a tag 'BaseProvClass' in neo4j
+    __abstract_node__ = True
+
     identifier = StringProperty(required=True)
     attributes = JSONProperty()
 
