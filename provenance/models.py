@@ -16,12 +16,38 @@ class BaseProvRel(StructuredRel):
     attributes = JSONProperty()
 
 
+class WasGeneratedByRel(BaseProvRel):
+    time = DateTimeFormatProperty()
+
+
+class UsedRel(BaseProvRel):
+    time = DateTimeFormatProperty()
+
+
+class WasInvalidatedByRel(BaseProvRel):
+    time = DateTimeFormatProperty()
+
+
+class WasDerivedFromRel(BaseProvRel):
+    activity = StringProperty()
+    generation = StringProperty()
+    usage = StringProperty()
+
+
 class WasInformedBy(BaseProvRel):
     pass
 
 
 class WasAttributedTo(BaseProvRel):
     pass
+
+
+class WasAssociatedWithRel(BaseProvRel):
+    plan = StringProperty()
+
+
+class ActedOnBehalfOfRel(BaseProvRel):
+    activity = StringProperty()
 
 
 class WasInfluencedBy(BaseProvRel):
@@ -108,24 +134,33 @@ class BaseProvClass(StructuredNode):
     attributes = JSONProperty()
 
     bundled_in = RelationshipTo('Bundle', 'bundled_in')
+
     # TODO -- might not be correct and might be necessary to move this somewhere else as the relationship can be between all PROV-DM types
     was_influenced_by = RelationshipTo('BaseProvClass', 'was_influenced_by', model=WasInfluencedBy)
 
 
 class Entity(BaseProvClass):
+    was_derived_from = RelationshipTo('Entity', 'was_derived_from', model=WasDerivedFromRel)
+    was_generated_by = RelationshipTo('Activity', 'was_generated_by', model=WasGeneratedByRel)
+    was_invalidated_by = RelationshipTo('Activity', 'was_invalidated_by', model=WasInvalidatedByRel)
     was_attributed_to = RelationshipTo('Agent', 'was_attributed_to', model=WasAttributedTo)
     specialization_of = RelationshipTo('Entity', 'specialization_of')
     alternate_of = RelationshipTo('Entity', 'alternate_of')
-
 
 class Activity(BaseProvClass):
     start_time = DateTimeFormatProperty()
     end_time = DateTimeFormatProperty()
 
     was_informed_by = RelationshipTo('Activity', 'was_informed_by', model=WasInformedBy)
+    used = RelationshipTo('Entity', 'used', model=UsedRel)
+    was_associated_with = RelationshipTo('Agen', 'was_associated_with', model=WasAssociatedWithRel)
+
+    # was_started_by?
+    # was_ended_by?
 
 
 class Agent(BaseProvClass):
+    acted_on_behalf_of = RelationshipTo('Agen', 'acted_on_behalf_of', model=ActedOnBehalfOfRel)
     was_attributed_to = RelationshipFrom('Entity', 'was_attributed_to', model=WasAttributedTo)
 
 
