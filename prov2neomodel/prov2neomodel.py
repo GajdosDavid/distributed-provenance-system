@@ -13,11 +13,9 @@ def import_graph(document: ProvDocument):
         neo_bundle.identifier = bundle.identifier
         neo_bundle.save()
 
-        # Generate nodes first
         for prov_elem in bundle.get_records(ProvElement):
-            import_element(neo_bundle, prov_elem)
+            import_element(neo_bundle, prov_elem, models)
 
-        # Now connect the nodes
         for prov_relation in bundle.get_records(ProvRelation):
             import_relations(bundle, prov_relation, models)
 
@@ -31,13 +29,10 @@ def import_graph(document: ProvDocument):
 
 def import_element(bundle, elem, models: dict):
     mapper_class = prov2neo_mappers.get(type(elem))
-    mapper = mapper_class(elem)
-    mapper.do_mapping()
+    mapper = mapper_class(bundle, elem)
+    mapper.save()
 
     model = mapper.get_neomodel()
-    model.save()
-    model.bundled_in.connect(bundle)
-
     assert model.identifier not in models
     models[model.identifier] = model
 

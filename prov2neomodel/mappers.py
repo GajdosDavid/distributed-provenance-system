@@ -5,8 +5,9 @@ from provenance.models import *
 
 class BaseElementMapper(ABC):
 
-    def __init__(self, prov_elem):
+    def __init__(self, bundle, prov_elem):
         self._prov_elem = prov_elem
+        self._bundle = bundle
         self._neo_elem = None
 
         self._initialize_model()
@@ -15,7 +16,7 @@ class BaseElementMapper(ABC):
         return self._neo_elem
 
     @abstractmethod
-    def do_mapping(self):
+    def save(self):
         pass
 
     @abstractmethod
@@ -33,9 +34,12 @@ class ProvEntityMapper(BaseElementMapper):
     def _initialize_model(self):
         self._neo_elem = Entity()
 
-    def do_mapping(self):
+    def save(self):
         self._neo_elem.identifier = self._prov_elem.identifier
         self._add_attributes()
+
+        self._neo_elem.save()
+        self._neo_elem.bundled_in.connect(self._bundle)
 
 
 class ProvAgentMapper(BaseElementMapper):
@@ -43,9 +47,12 @@ class ProvAgentMapper(BaseElementMapper):
     def _initialize_model(self):
         self._neo_elem = Agent()
 
-    def do_mapping(self):
+    def save(self):
         self._neo_elem.identifier = self._prov_elem.identifier
         self._add_attributes()
+
+        self._neo_elem.save()
+        self._neo_elem.bundled_in.connect(self._bundle)
 
 
 class ProvActivityMapper(BaseElementMapper):
@@ -53,12 +60,15 @@ class ProvActivityMapper(BaseElementMapper):
     def _initialize_model(self):
         self._neo_elem = Activity()
 
-    def do_mapping(self):
+    def save(self):
         self._neo_elem.identifier = self._prov_elem.identifier
         self._neo_elem.start_time = self._prov_elem.get_startTime()
         self._neo_elem.end_time = self._prov_elem.get_endTime()
         self._add_attributes()
 
+        self._neo_elem.save()
+        self._neo_elem.bundled_in.connect(self._bundle)
+        
 
 prov2neo_mappers = {
     ProvEntity: ProvEntityMapper,
