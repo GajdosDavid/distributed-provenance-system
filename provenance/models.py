@@ -16,15 +16,15 @@ class BaseProvRel(StructuredRel):
 
 
 class WasGeneratedByRel(BaseProvRel):
-    time = DateTimeFormatProperty()
+    time = DateTimeFormatProperty(format='%Y-%m-%dT%H:%M:%S')
 
 
 class UsedRel(BaseProvRel):
-    time = DateTimeFormatProperty()
+    time = DateTimeFormatProperty(format='%Y-%m-%dT%H:%M:%S')
 
 
 class WasInvalidatedByRel(BaseProvRel):
-    time = DateTimeFormatProperty()
+    time = DateTimeFormatProperty(format='%Y-%m-%dT%H:%M:%S')
 
 
 class WasDerivedFromRel(BaseProvRel):
@@ -69,7 +69,7 @@ class WasGeneratedBy(BaseProvRelNode):
 
     activity = RelationshipTo('Activity', 'was_generated_by', cardinality.ZeroOrOne)
 
-    time = DateTimeFormatProperty()
+    time = DateTimeFormatProperty(format='%Y-%m-%dT%H:%M:%S')
 
 
 class Used(BaseProvRelNode):
@@ -77,7 +77,7 @@ class Used(BaseProvRelNode):
 
     entity = RelationshipTo('Entity', 'used', cardinality.ZeroOrOne)
 
-    time = DateTimeFormatProperty()
+    time = DateTimeFormatProperty(format='%Y-%m-%dT%H:%M:%S')
 
 
 class WasStartedBy(BaseProvRelNode):
@@ -86,7 +86,7 @@ class WasStartedBy(BaseProvRelNode):
     trigger = RelationshipTo('Entity', 'was_started_by', cardinality.ZeroOrOne)
     starter = RelationshipTo('Activity', 'was_started_by', cardinality.ZeroOrOne)
 
-    time = DateTimeFormatProperty()
+    time = DateTimeFormatProperty(format='%Y-%m-%dT%H:%M:%S')
 
 
 class WasEndedBy(BaseProvRelNode):
@@ -95,7 +95,7 @@ class WasEndedBy(BaseProvRelNode):
     trigger = RelationshipTo('Entity', 'was_ended_by', cardinality.ZeroOrOne)
     ender = RelationshipTo('Activity', 'was_ended_by', cardinality.ZeroOrOne)
 
-    time = DateTimeFormatProperty()
+    time = DateTimeFormatProperty(format='%Y-%m-%dT%H:%M:%S')
 
 
 class WasInvalidatedBy(BaseProvRelNode):
@@ -103,7 +103,7 @@ class WasInvalidatedBy(BaseProvRelNode):
 
     activity = RelationshipTo('Activity', 'was_invalidated_by', cardinality.ZeroOrOne)
 
-    time = DateTimeFormatProperty()
+    time = DateTimeFormatProperty(format='%Y-%m-%dT%H:%M:%S')
 
 
 class WasAssociatedWith(BaseProvRelNode):
@@ -137,8 +137,8 @@ class Entity(BaseProvClass):
 
 
 class Activity(BaseProvClass):
-    start_time = DateTimeFormatProperty()
-    end_time = DateTimeFormatProperty()
+    start_time = DateTimeFormatProperty(format='%Y-%m-%dT%H:%M:%S')
+    end_time = DateTimeFormatProperty(format='%Y-%m-%dT%H:%M:%S')
 
     was_informed_by = RelationshipTo('Activity', 'was_informed_by', model=WasInformedByRel)
     used = RelationshipTo('Entity', 'used', model=UsedRel)
