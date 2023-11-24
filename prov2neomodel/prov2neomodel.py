@@ -15,20 +15,11 @@ def import_graph(document: ProvDocument):
 
         # Generate nodes first
         for prov_elem in bundle.get_records(ProvElement):
-            mapper_class = prov2neo_mappers.get(type(prov_elem))
-            mapper = mapper_class(prov_elem)
-            mapper.do_mapping()
-
-            model = mapper.get_neomodel()
-            model.save()
-            model.bundled_in.connect(neo_bundle)
-
-            assert model.identifier not in models
-            models[model.identifier] = model
+            import_element(neo_bundle, prov_elem)
 
         # Now connect the nodes
         for prov_relation in bundle.get_records(ProvRelation):
-            print(prov_relation)
+            import_relations(bundle, prov_relation, models)
 
         # TODO -- do this only within a scope of bundle to avoid doing it for all nodes
         # query = ("MATCH (node) "
@@ -36,3 +27,20 @@ def import_graph(document: ProvDocument):
         #          "SET node += apoc.convert.fromJsonMap(node.attributes) "
         #          "REMOVE node.attributes")
         # results, meta = db.cypher_query(query, None, resolve_objects=True)
+
+
+def import_element(bundle, elem, models: dict):
+    mapper_class = prov2neo_mappers.get(type(elem))
+    mapper = mapper_class(elem)
+    mapper.do_mapping()
+
+    model = mapper.get_neomodel()
+    model.save()
+    model.bundled_in.connect(bundle)
+
+    assert model.identifier not in models
+    models[model.identifier] = model
+
+
+def import_relations(bundle, relation, models: dict):
+    pass
