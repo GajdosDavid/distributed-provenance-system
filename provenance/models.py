@@ -85,8 +85,6 @@ class BaseProvClass(StructuredNode):
     attributes = JSONProperty()
 
     bundled_in = RelationshipTo('Bundle', 'bundled_in')
-
-    # TODO -- might not be correct and might be necessary to move this somewhere else as the relationship can be between all PROV-DM types
     was_influenced_by = RelationshipTo('BaseProvClass', 'was_influenced_by', model=WasInfluencedBy)
 
 
