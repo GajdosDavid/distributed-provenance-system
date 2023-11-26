@@ -3,8 +3,22 @@ from prov.model import *
 from provenance.models import *
 
 
-def convert_tuple_list_to_dict(tuple_list: list):
-    return {str(key): str(value) for key, value in tuple_list}
+def convert_tuple_list_to_dict(tuple_list: list) -> dict:
+    out = {}
+
+    for key, value in tuple_list:
+        key = str(key)
+        value = str(value)
+
+        if key in out:
+            if isinstance(out[key], list):
+                out[key].append(value)
+            else:
+                out[key] = [value, out[key]]
+        else:
+            out[key] = value
+
+    return out
 
 
 class BaseElementMapper(ABC):
