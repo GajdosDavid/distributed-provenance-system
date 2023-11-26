@@ -102,6 +102,7 @@ class Entity(BaseProvClass):
     was_attributed_to = RelationshipTo('Agent', 'was_attributed_to', model=WasAttributedTo)
     specialization_of = RelationshipTo('Entity', 'specialization_of')
     alternate_of = RelationshipTo('Entity', 'alternate_of')
+    had_member = RelationshipTo('Entity', 'had_member')
 
 
 class Activity(BaseProvClass):
@@ -129,5 +130,3 @@ class Agent(BaseProvClass):
 
 class Bundle(BaseProvClass):
     pass
-
-# TODO -- missing collections and hadMember() relation
