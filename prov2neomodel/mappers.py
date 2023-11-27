@@ -33,6 +33,10 @@ class BaseElementMapper(ABC):
     def get_neomodel(self):
         return self._neo_elem
 
+    def map(self):
+        self._neo_elem.identifier = self._prov_elem.identifier
+        self._add_attributes()
+
     @abstractmethod
     def save(self):
         pass
@@ -53,8 +57,7 @@ class ProvEntityMapper(BaseElementMapper):
         self._neo_elem = Entity()
 
     def save(self):
-        self._neo_elem.identifier = self._prov_elem.identifier
-        self._add_attributes()
+        self.map()
 
         self._neo_elem.save()
         self._neo_elem.bundled_in.connect(self._bundle)
@@ -66,8 +69,7 @@ class ProvAgentMapper(BaseElementMapper):
         self._neo_elem = Agent()
 
     def save(self):
-        self._neo_elem.identifier = self._prov_elem.identifier
-        self._add_attributes()
+        self.map()
 
         self._neo_elem.save()
         self._neo_elem.bundled_in.connect(self._bundle)
@@ -78,11 +80,13 @@ class ProvActivityMapper(BaseElementMapper):
     def _initialize_model(self):
         self._neo_elem = Activity()
 
-    def save(self):
-        self._neo_elem.identifier = self._prov_elem.identifier
+    def map(self):
+        super().map()
         self._neo_elem.start_time = self._prov_elem.get_startTime()
         self._neo_elem.end_time = self._prov_elem.get_endTime()
-        self._add_attributes()
+
+    def save(self):
+        self.map()
 
         self._neo_elem.save()
         self._neo_elem.bundled_in.connect(self._bundle)
