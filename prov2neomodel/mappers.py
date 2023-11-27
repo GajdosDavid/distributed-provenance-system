@@ -33,7 +33,7 @@ class BaseElementMapper(ABC):
     def get_neomodel(self):
         return self._neo_elem
 
-    def map(self):
+    def map_to_neomodel(self):
         self._neo_elem.identifier = self._prov_elem.identifier
         self._add_attributes()
 
@@ -47,7 +47,7 @@ class BaseElementMapper(ABC):
 
     def _add_attributes(self):
         if self._prov_elem.attributes:
-            attr_dict = convert_tuple_list_to_dict(self._prov_elem.attributes)
+            attr_dict = convert_tuple_list_to_dict(self._prov_elem.extra_attributes)
             self._neo_elem.attributes = attr_dict
 
 
@@ -57,7 +57,7 @@ class ProvEntityMapper(BaseElementMapper):
         self._neo_elem = Entity()
 
     def save(self):
-        self.map()
+        self.map_to_neomodel()
 
         self._neo_elem.save()
         self._neo_elem.bundled_in.connect(self._bundle)
@@ -69,7 +69,7 @@ class ProvAgentMapper(BaseElementMapper):
         self._neo_elem = Agent()
 
     def save(self):
-        self.map()
+        self.map_to_neomodel()
 
         self._neo_elem.save()
         self._neo_elem.bundled_in.connect(self._bundle)
@@ -80,13 +80,13 @@ class ProvActivityMapper(BaseElementMapper):
     def _initialize_model(self):
         self._neo_elem = Activity()
 
-    def map(self):
-        super().map()
+    def map_to_neomodel(self):
+        super().map_to_neomodel()
         self._neo_elem.start_time = self._prov_elem.get_startTime()
         self._neo_elem.end_time = self._prov_elem.get_endTime()
 
     def save(self):
-        self.map()
+        self.map_to_neomodel()
 
         self._neo_elem.save()
         self._neo_elem.bundled_in.connect(self._bundle)
