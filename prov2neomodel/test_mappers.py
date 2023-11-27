@@ -50,7 +50,3 @@ class ElementMappersTestCase(TestCase):
         self.assertEqual(neomodel.start_time, start)
         self.assertEqual(neomodel.end_time, end)
         self.assertEqual(neomodel.attributes, attributes)
-
-
-class RelationMappersTestCase(TestCase):
-    pass
