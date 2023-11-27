@@ -17,7 +17,7 @@ def import_graph(document: ProvDocument):
             import_element(neo_bundle, prov_elem, models)
 
         for prov_relation in bundle.get_records(ProvRelation):
-            import_relations(neo_bundle, prov_relation, models)
+            import_relation(neo_bundle, prov_relation, models)
 
         # TODO -- do this only within a scope of bundle to avoid doing it for all nodes
         # query = ("MATCH (node) "
@@ -37,7 +37,7 @@ def import_element(bundle, elem, models: dict):
     models[model.identifier] = model
 
 
-def import_relations(bundle, relation, models: dict):
+def import_relation(bundle, relation, models: dict):
     mapper_class = prov2neo_mappers.get(type(relation))
     mapper = mapper_class(bundle, relation, models)
     mapper.save()
