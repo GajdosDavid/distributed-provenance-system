@@ -1,6 +1,6 @@
 from django.http import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_http_methods
 from django.core.exceptions import BadRequest
 
 from prov.model import ProvDocument
@@ -15,8 +15,15 @@ from .certificate_manager import cert_manager
 
 
 @csrf_exempt
-@require_POST
-def index(request):
+@require_http_methods(["GET", "POST"])
+def graphs(request):
+    if request.method == 'POST':
+        return graphs_post(request)
+    else:
+        return graphs_get(request)
+
+
+def graphs_post(request):
     json_data = json.loads(request.body)
 
     try:
@@ -40,3 +47,7 @@ def index(request):
     import_graph(prov_doc)
 
     return HttpResponse("Hello, mon frere")
+
+
+def graphs_get(request):
+    pass
