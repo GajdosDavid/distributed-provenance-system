@@ -6,9 +6,11 @@ from django.core.exceptions import BadRequest
 from prov.model import ProvDocument
 from prov2neomodel.prov2neomodel import import_graph
 from OpenSSL import crypto
+import cryptography.exceptions
 import json
 import base64
 
+from .validators import GraphInputValidator, InvalidGraph
 from .certificate_manager import cert_manager
 
 
@@ -23,6 +25,15 @@ def index(request):
         cert_manager.verify_certificate(user_cert, intermediate_certs)
     except crypto.X509StoreContextError:
         raise BadRequest("Bad certificate")
+
+    try:
+        validator = GraphInputValidator(json_data)
+        validator.verify_signature()
+        validator.validate_graph()
+    except cryptography.exceptions.InvalidSignature:
+        raise BadRequest("Invalid signature")
+    except InvalidGraph:
+        raise BadRequest("Incorrect graph")
 
     graph = base64.b64decode(json_data['graph']['data'])
     prov_doc = ProvDocument.deserialize(content=graph, format="rdf")
