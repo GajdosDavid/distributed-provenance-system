@@ -41,9 +41,11 @@ def graphs_post(request):
         raise BadRequest("Incorrect graph")
 
     graph = validator.get_graph()
-    import_graph(graph)
+    import_graph(graph, json_data)
 
-    return HttpResponse("Hello, mon frere")
+    #s = graph.serialize(format='rdf')
+    #print(s)
+    return HttpResponse("Alles gut")
 
 
 def graphs_get(request):

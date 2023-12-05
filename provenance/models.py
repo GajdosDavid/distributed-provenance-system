@@ -127,4 +127,6 @@ class Agent(BaseProvClass):
 
 
 class Bundle(BaseProvClass):
-    pass
+    graph = StringProperty()
+    signature = StringProperty()
+    timestamp = DateTimeFormatProperty(format='%Y-%m-%dT%H:%M:%S')
