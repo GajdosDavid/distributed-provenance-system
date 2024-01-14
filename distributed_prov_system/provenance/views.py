@@ -36,10 +36,14 @@ def graphs_post(request):
     graph = validator.get_graph()
     import_graph(graph, json_data)
 
-    #s = graph.serialize(format='rdf')
-    #print(s)
+    confirm_store_to_trusted_party()
+
     return HttpResponse("Alles gut")
 
 
 def graphs_get(request):
+    pass
+
+
+def confirm_store_to_trusted_party():
     pass

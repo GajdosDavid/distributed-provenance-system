@@ -3,6 +3,7 @@ from cryptography.hazmat.primitives.asymmetric import padding
 from prov.model import ProvDocument
 import base64
 import jcs
+import cryptography.exceptions
 
 from .certificate_manager import cert_manager
 
@@ -30,15 +31,8 @@ class GraphInputValidator:
         return self._prov_graph
 
     def verify_token(self):
-        # TODO -- try primary trusted party and then secondary
-        cert = cert_manager.get_primary_ttp_cert().to_cryptography()
-        pk = cert.public_key()
-        pk.verify(
-            signature=self._signature,
-            data=jcs.canonicalize(self._token['data']),
-            padding=padding.PKCS1v15(),
-            algorithm=hashes.SHA256()
-        )
+        if not self._verify_signature():
+            raise cryptography.exceptions.InvalidSignature()
 
         if not self._hash_matches():
             raise IncorrectHash()
@@ -55,3 +49,20 @@ class GraphInputValidator:
         digest.update(self._graph)
 
         return self._token['data']['graphImprint'] == digest.finalize().hex()
+
+    def _verify_signature(self):
+        for cert in cert_manager.get_all_certs():
+            try:
+                pk = cert.to_cryptography().public_key()
+                pk.verify(
+                    signature=self._signature,
+                    data=jcs.canonicalize(self._token['data']),
+                    padding=padding.PKCS1v15(),
+                    algorithm=hashes.SHA256()
+                )
+
+                return True
+            except cryptography.exceptions.InvalidSignature:
+                pass
+
+        return False

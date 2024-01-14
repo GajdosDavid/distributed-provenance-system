@@ -27,6 +27,7 @@ class CertManager(object):
     _instance = None
     _store = crypto.X509Store()
     _primary_cert = None
+    _secondary_certs = []
 
     def __new__(cls, *args, **kwargs):
         if not cls._instance:
@@ -36,6 +37,7 @@ class CertManager(object):
         return cls._instance
 
     def _initialize(self):
+        # TODO -- load from database or config (also the secondary ones)
         self._primary_cert = crypto.load_certificate(crypto.FILETYPE_PEM, root_cert)
 
         self._store.add_cert(self._primary_cert)
@@ -50,8 +52,11 @@ class CertManager(object):
         store_ctx = crypto.X509StoreContext(self._store, user_cert, intermediates_certs)
         store_ctx.verify_certificate()
 
-    def get_primary_ttp_cert(self):
+    def get_primary_cert(self):
         return self._primary_cert
+
+    def get_all_certs(self):
+        return [self._primary_cert] + self._secondary_certs
 
 
 cert_manager = CertManager()
