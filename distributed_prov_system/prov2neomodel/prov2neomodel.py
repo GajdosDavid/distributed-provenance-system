@@ -1,7 +1,7 @@
 from datetime import datetime
 from prov.model import ProvDocument, ProvElement, ProvRelation
 from .mappers import prov2neo_mappers
-from distributed_prov_system.provenance.models import Bundle, Entity
+from provenance.models import Bundle, Entity
 
 
 def import_graph(document: ProvDocument, json_data):
