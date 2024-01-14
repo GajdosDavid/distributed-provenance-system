@@ -26,16 +26,19 @@ iF1GosspRq0Su6ag97loUUj3J/SVNmxAbhK5PGRaHw0=
 class CertManager(object):
     _instance = None
     _store = crypto.X509Store()
+    _primary_cert = None
 
     def __new__(cls, *args, **kwargs):
         if not cls._instance:
             cls._instance = super(CertManager, cls).__new__(
                 cls, *args, **kwargs)
-            cls._initialize_store(cls._instance)
+            cls._initialize(cls._instance)
         return cls._instance
 
-    def _initialize_store(self):
-        self._store.add_cert(crypto.load_certificate(crypto.FILETYPE_PEM, root_cert))
+    def _initialize(self):
+        self._primary_cert = crypto.load_certificate(crypto.FILETYPE_PEM, root_cert)
+
+        self._store.add_cert(self._primary_cert)
 
     def add_trusted_cert(self):
         pass
@@ -46,6 +49,9 @@ class CertManager(object):
 
         store_ctx = crypto.X509StoreContext(self._store, user_cert, intermediates_certs)
         store_ctx.verify_certificate()
+
+    def get_primary_ttp_cert(self):
+        return self._primary_cert
 
 
 cert_manager = CertManager()

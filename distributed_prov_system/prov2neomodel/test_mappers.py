@@ -1,4 +1,4 @@
-from unittest import TestCase, mock
+from unittest import TestCase
 from . import mappers
 from datetime import datetime
 from prov.model import ProvEntity, ProvBundle, ProvAgent, ProvActivity
