@@ -130,3 +130,8 @@ class Bundle(BaseProvClass):
     graph = StringProperty()
     signature = StringProperty()
     timestamp = DateTimeFormatProperty(format='%Y-%m-%dT%H:%M:%S')
+
+
+class Document(StructuredNode):
+    identifier = StringProperty()
+    graph = StringProperty()

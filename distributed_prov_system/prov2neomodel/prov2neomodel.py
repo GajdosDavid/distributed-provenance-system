@@ -1,10 +1,24 @@
 from datetime import datetime
+import base64
 from prov.model import ProvDocument, ProvElement, ProvRelation
 from .mappers import prov2neo_mappers
-from provenance.models import Bundle, Entity
+from provenance.models import Bundle, Entity, Document
 
 
-def import_graph(document: ProvDocument, json_data):
+def import_graph(document, json_data):
+    assert len(document.bundles) == 1, 'Only one bundle expected per document'
+
+    for bundle in document.bundles:
+        neo_document = Document()
+        neo_document.identifier = str(bundle.identifier) + '_v1'
+        neo_document.graph = base64.b64decode(json_data['graph']).decode('utf-8')
+        neo_document.save()
+
+        create_and_import_meta_provenance(str(bundle.identifier), json_data)
+
+
+# leaving this here if some time in future it'd be necessary to split document into individual nodes
+def __import_graph__(document: ProvDocument, json_data):
     assert document.has_bundles(), 'No bundles inside the document!'
 
     for bundle in document.bundles:
@@ -34,10 +48,6 @@ def import_graph(document: ProvDocument, json_data):
 
 
 def create_and_import_meta_provenance(bundle_id, json_data):
-    user_cert = json_data['certificates']['user_cert']
-    intermediate_certs = json_data['certificates']['intermediate_certs']
-    signature = json_data['signature']
-
     meta_bundle = Bundle()
     meta_bundle.identifier = bundle_id + '_meta'
 
@@ -47,14 +57,11 @@ def create_and_import_meta_provenance(bundle_id, json_data):
         'prov:type': 'prov:bundle'
     }
 
+    attributes = json_data['token']
+    attributes.update({'prov:type': 'prov:bundle'})
     first_version = Entity()
     first_version.identifier = bundle_id + '_v1'
-    first_version.attributes = {
-        'prov:type': 'prov:bundle',
-        'signature': signature,
-        'user_certificate': user_cert,
-        'intermediate_certificates': intermediate_certs
-    }
+    first_version.attributes = attributes
 
     first_version.save()
     gen_entity.save()
