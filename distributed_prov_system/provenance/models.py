@@ -1,5 +1,5 @@
 from neomodel import (StructuredRel, StructuredNode, StringProperty,
-                      JSONProperty, DateTimeFormatProperty, RelationshipTo)
+                      JSONProperty, DateTimeFormatProperty, RelationshipTo, RelationshipFrom)
 
 
 # Classes representing relationships between individual nodes that can hold additional information
@@ -61,7 +61,7 @@ class BaseFakeProvClass(StructuredNode):
     # avoids giving a tag 'BaseFakeProvClass' in neo4j
     __abstract_node__ = True
 
-    bundled_in = RelationshipTo('Bundle', 'bundled_in')
+    # bundled_in = RelationshipTo('Bundle', 'bundled_in')
 
 
 class FakeActivity(BaseFakeProvClass):
@@ -84,7 +84,7 @@ class BaseProvClass(StructuredNode):
     identifier = StringProperty(required=True)
     attributes = JSONProperty()
 
-    bundled_in = RelationshipTo('Bundle', 'bundled_in')
+    # bundled_in = RelationshipTo('Bundle', 'bundled_in')
     was_influenced_by = RelationshipTo('BaseProvClass', 'was_influenced_by', model=WasInfluencedBy)
 
 
@@ -127,9 +127,8 @@ class Agent(BaseProvClass):
 
 
 class Bundle(BaseProvClass):
-    graph = StringProperty()
-    signature = StringProperty()
-    timestamp = DateTimeFormatProperty(format='%Y-%m-%dT%H:%M:%S')
+    contains = RelationshipTo('Entity', 'contains')
+    pass
 
 
 class Document(StructuredNode):

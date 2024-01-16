@@ -50,10 +50,11 @@ def __import_graph__(document: ProvDocument, json_data):
 
 
 def create_and_import_meta_provenance(bundle, new_entity_id, json_data):
-    token = json_data['token']
+    token = json_data['token']['data']
+    token['signature'] = json_data['token']['signature']
 
     meta_bundle = Bundle()
-    meta_bundle.identifier = token['data']['originatorId'] + '_' + get_main_activity_id(bundle)
+    meta_bundle.identifier = token['originatorId'] + '_' + get_main_activity_id(bundle)
 
     gen_entity = Entity()
     gen_entity.identifier = 'gen_entity'
@@ -70,8 +71,8 @@ def create_and_import_meta_provenance(bundle, new_entity_id, json_data):
     gen_entity.save()
     meta_bundle.save()
 
-    gen_entity.bundled_in.connect(meta_bundle)
-    first_version.bundled_in.connect(meta_bundle)
+    meta_bundle.contains.connect(gen_entity)
+    meta_bundle.contains.connect(first_version)
     first_version.specialization_of.connect(gen_entity)
 
 

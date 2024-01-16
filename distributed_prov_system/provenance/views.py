@@ -15,6 +15,7 @@ import provenance.controller as controller
 def confirm_store_to_trusted_party():
     pass
 
+
 @csrf_exempt
 @require_http_methods(["GET", "POST"])
 def graph(request, organization_id, graph_id):
@@ -52,15 +53,24 @@ def graphs_get(request, organization_id, graph_id):
         g = controller.get_provenance(organization_id, graph_id)
         t = controller.get_token(organization_id, graph_id)
     except DoesNotExist:
-        return JsonResponse({"error": "Not good"})
+        return JsonResponse({"error": "Not good"}, status=404)
 
     return JsonResponse({"graph": g, "token": t})
 
 
 @csrf_exempt
 @require_GET
-def graph_meta(request, organization_id, graph_id):
-    pass
+def graph_meta(request, organization_id, meta_id):
+    try:
+        meta = controller.get_meta_provenance(organization_id, meta_id)
+    except DoesNotExist:
+        return JsonResponse({"error": "Not good"}, status=404)
+
+    # TODO -- obtain token from trusted party
+    t = ""
+    g = meta.serialize(format=request.GET.get('format', 'rdf'))
+
+    return JsonResponse({"meta-prov": g, "token": t})
 
 
 @csrf_exempt
