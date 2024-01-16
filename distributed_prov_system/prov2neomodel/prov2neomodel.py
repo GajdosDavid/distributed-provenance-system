@@ -5,7 +5,7 @@ from .mappers import prov2neo_mappers
 from provenance.models import Bundle, Entity, Document
 
 
-def import_graph(document, json_data):
+def import_graph(document: ProvDocument, json_data):
     assert len(document.bundles) == 1, 'Only one bundle expected per document'
 
     for bundle in document.bundles:

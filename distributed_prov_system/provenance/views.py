@@ -17,18 +17,19 @@ def confirm_store_to_trusted_party():
 @require_http_methods(["GET", "POST"])
 def graph(request, organization_id, graph_id):
     if request.method == 'POST':
-        return graphs_post(request)
+        return graphs_post(request, organization_id, graph_id)
     else:
-        return graphs_get(request)
+        return graphs_get(request, organization_id, graph_id)
 
 
-def graphs_post(request):
+def graphs_post(request, organization_id, graph_id):
     json_data = json.loads(request.body)
 
     try:
         validator = GraphInputValidator(json_data)
         validator.verify_token()
-        validator.validate_graph()
+        validator.validate_token(organization_id)
+        validator.validate_graph(graph_id)
     except cryptography.exceptions.InvalidSignature:
         raise BadRequest("Invalid signature")
     except InvalidGraph:
@@ -36,15 +37,15 @@ def graphs_post(request):
     except IncorrectHash:
         raise BadRequest("Incorrect hash")
 
-    graph = validator.get_graph()
-    import_graph(graph, json_data)
+    document = validator.get_document()
+    import_graph(document, json_data)
 
     confirm_store_to_trusted_party()
 
     return HttpResponse("Alles gut")
 
 
-def graphs_get(request):
+def graphs_get(request, organization_id, graph_id):
     pass
 
 
