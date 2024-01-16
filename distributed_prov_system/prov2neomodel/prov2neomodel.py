@@ -1,5 +1,5 @@
 from datetime import datetime
-from prov.model import ProvDocument, ProvElement, ProvRelation
+from prov.model import ProvDocument, ProvElement, ProvRelation, ProvActivity, QualifiedName
 from .mappers import prov2neo_mappers
 from provenance.models import Bundle, Entity, Document
 
@@ -16,7 +16,7 @@ def import_graph(document: ProvDocument, json_data):
         neo_document.graph = json_data['graph']
         neo_document.save()
 
-        create_and_import_meta_provenance(identifier, json_data)
+        create_and_import_meta_provenance(bundle, identifier, json_data)
 
 
 # leaving this here if some time in future it'd be necessary to split document into individual nodes
@@ -49,21 +49,22 @@ def __import_graph__(document: ProvDocument, json_data):
         # results, meta = db.cypher_query(query, None, resolve_objects=True)
 
 
-def create_and_import_meta_provenance(bundle_id, json_data):
+def create_and_import_meta_provenance(bundle, new_entity_id, json_data):
+    token = json_data['token']
+
     meta_bundle = Bundle()
-    meta_bundle.identifier = bundle_id + '_meta'
+    meta_bundle.identifier = token['data']['originatorId'] + '_' + get_main_activity_id(bundle)
 
     gen_entity = Entity()
-    gen_entity.identifier = bundle_id + '_gen'
+    gen_entity.identifier = 'gen_entity'
     gen_entity.attributes = {
         'prov:type': 'prov:bundle'
     }
 
-    attributes = json_data['token']
-    attributes.update({'prov:type': 'prov:bundle'})
+    token.update({'prov:type': 'prov:bundle'})
     first_version = Entity()
-    first_version.identifier = bundle_id
-    first_version.attributes = attributes
+    first_version.identifier = new_entity_id
+    first_version.attributes = token
 
     first_version.save()
     gen_entity.save()
@@ -72,6 +73,15 @@ def create_and_import_meta_provenance(bundle_id, json_data):
     gen_entity.bundled_in.connect(meta_bundle)
     first_version.bundled_in.connect(meta_bundle)
     first_version.specialization_of.connect(gen_entity)
+
+
+def get_main_activity_id(bundle):
+    for activity in bundle.get_records(ProvActivity):
+        for (_, value) in activity.attributes:
+            if str(value) == "cpm:mainActivity":
+                return activity.identifier.localpart
+
+    return None
 
 
 def import_element(bundle, elem, models: dict):
