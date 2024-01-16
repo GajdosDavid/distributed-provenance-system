@@ -1,5 +1,4 @@
 from datetime import datetime
-import base64
 from prov.model import ProvDocument, ProvElement, ProvRelation
 from .mappers import prov2neo_mappers
 from provenance.models import Bundle, Entity, Document
@@ -10,11 +9,11 @@ def import_graph(document: ProvDocument, json_data):
 
     for bundle in document.bundles:
         token = json_data['token']
-        identifier = token['data']['originatorId'] + bundle.identifier.localpart
+        identifier = f"{token['data']['originatorId']}_{bundle.identifier.localpart}"
 
         neo_document = Document()
         neo_document.identifier = identifier
-        neo_document.graph = base64.b64decode(json_data['graph']).decode('utf-8')
+        neo_document.graph = json_data['graph']
         neo_document.save()
 
         create_and_import_meta_provenance(identifier, json_data)

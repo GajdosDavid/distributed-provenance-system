@@ -1,13 +1,15 @@
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods, require_GET
 from django.core.exceptions import BadRequest
+from neomodel.exceptions import DoesNotExist
 
 from prov2neomodel.prov2neomodel import import_graph
 import cryptography.exceptions
 import json
 
 from .validators import GraphInputValidator, InvalidGraph, IncorrectHash
+import provenance.controller as controller
 
 
 def confirm_store_to_trusted_party():
@@ -46,7 +48,13 @@ def graphs_post(request, organization_id, graph_id):
 
 
 def graphs_get(request, organization_id, graph_id):
-    pass
+    try:
+        g = controller.get_provenance(organization_id, graph_id)
+        t = controller.get_token(organization_id, graph_id)
+    except DoesNotExist:
+        return JsonResponse({"error": "Not good"})
+
+    return JsonResponse({"graph": g, "token": t})
 
 
 @csrf_exempt
