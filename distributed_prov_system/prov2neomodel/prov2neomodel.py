@@ -9,12 +9,15 @@ def import_graph(document, json_data):
     assert len(document.bundles) == 1, 'Only one bundle expected per document'
 
     for bundle in document.bundles:
+        token = json_data['token']
+        identifier = token['data']['originatorId'] + bundle.identifier.localpart
+
         neo_document = Document()
-        neo_document.identifier = str(bundle.identifier) + '_v1'
+        neo_document.identifier = identifier
         neo_document.graph = base64.b64decode(json_data['graph']).decode('utf-8')
         neo_document.save()
 
-        create_and_import_meta_provenance(str(bundle.identifier), json_data)
+        create_and_import_meta_provenance(identifier, json_data)
 
 
 # leaving this here if some time in future it'd be necessary to split document into individual nodes
@@ -60,7 +63,7 @@ def create_and_import_meta_provenance(bundle_id, json_data):
     attributes = json_data['token']
     attributes.update({'prov:type': 'prov:bundle'})
     first_version = Entity()
-    first_version.identifier = bundle_id + '_v1'
+    first_version.identifier = bundle_id
     first_version.attributes = attributes
 
     first_version.save()

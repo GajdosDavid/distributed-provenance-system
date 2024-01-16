@@ -31,6 +31,7 @@ class GraphInputValidator:
         return self._prov_graph
 
     def verify_token(self):
+        # TODO -- assert all the mandatory fields are present in token
         if not self._verify_signature():
             raise cryptography.exceptions.InvalidSignature()
 
