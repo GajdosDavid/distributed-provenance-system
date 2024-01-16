@@ -1,6 +1,6 @@
 from django.http import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_http_methods
+from django.views.decorators.http import require_http_methods, require_GET
 from django.core.exceptions import BadRequest
 
 from prov2neomodel.prov2neomodel import import_graph
@@ -10,9 +10,12 @@ import json
 from .validators import GraphInputValidator, InvalidGraph, IncorrectHash
 
 
+def confirm_store_to_trusted_party():
+    pass
+
 @csrf_exempt
 @require_http_methods(["GET", "POST"])
-def graphs(request):
+def graph(request, organization_id, graph_id):
     if request.method == 'POST':
         return graphs_post(request)
     else:
@@ -45,5 +48,19 @@ def graphs_get(request):
     pass
 
 
-def confirm_store_to_trusted_party():
+@csrf_exempt
+@require_GET
+def graph_meta(request, organization_id, graph_id):
+    pass
+
+
+@csrf_exempt
+@require_GET
+def graph_domain_specific(request, organization_id, graph_id):
+    pass
+
+
+@csrf_exempt
+@require_GET
+def graph_backbone(request, organization_id, graph_id):
     pass
