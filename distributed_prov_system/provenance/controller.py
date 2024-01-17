@@ -10,10 +10,10 @@ def get_provenance(organization_id, graph_id):
     return d.graph
 
 
-def get_domain_specific_prov(organization_id, graph_id):
+def get_subgraph(organization_id, graph_id, is_domain_specific=True, format='rdf'):
     d = Document.nodes.get(identifier=f"{organization_id}_{graph_id}")
-    prov_subgraph = retrieve_subgraph(b64decode(d.graph))
-    subgraph = prov_subgraph.serialize(format='rdf').encode('utf-8')
+    prov_subgraph = retrieve_subgraph(b64decode(d.graph), is_domain_specific)
+    subgraph = prov_subgraph.serialize(format=format).encode('utf-8')
 
     return b64encode(subgraph).decode('utf-8')
 

@@ -77,7 +77,7 @@ def graph_meta(request, organization_id, meta_id):
 @require_GET
 def graph_domain_specific(request, organization_id, graph_id):
     try:
-        g = controller.get_domain_specific_prov(organization_id, graph_id)
+        g = controller.get_subgraph(organization_id, graph_id, format=request.GET.get('format', 'rdf'))
     except DoesNotExist:
         return JsonResponse({"error": "Not good"}, status=404)
 
@@ -89,4 +89,11 @@ def graph_domain_specific(request, organization_id, graph_id):
 @csrf_exempt
 @require_GET
 def graph_backbone(request, organization_id, graph_id):
-    pass
+    try:
+        g = controller.get_subgraph(organization_id, graph_id, is_domain_specific=False, format=request.GET.get('format', 'rdf'))
+    except DoesNotExist:
+        return JsonResponse({"error": "Not good"}, status=404)
+
+    # TODO -- obtain token from trusted party
+    t = ""
+    return JsonResponse({"graph": g, "token": t})
