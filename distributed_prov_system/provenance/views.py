@@ -76,7 +76,14 @@ def graph_meta(request, organization_id, meta_id):
 @csrf_exempt
 @require_GET
 def graph_domain_specific(request, organization_id, graph_id):
-    pass
+    try:
+        g = controller.get_domain_specific_prov(organization_id, graph_id)
+    except DoesNotExist:
+        return JsonResponse({"error": "Not good"}, status=404)
+
+    # TODO -- obtain token from trusted party
+    t = ""
+    return JsonResponse({"graph": g, "token": t})
 
 
 @csrf_exempt
