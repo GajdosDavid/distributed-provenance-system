@@ -4,7 +4,7 @@ from .mappers import prov2neo_mappers
 from provenance.models import Bundle, Entity, Document
 
 
-def import_graph(document: ProvDocument, json_data):
+def import_graph(document: ProvDocument, json_data, is_update=False):
     assert len(document.bundles) == 1, 'Only one bundle expected per document'
 
     for bundle in document.bundles:
@@ -16,7 +16,10 @@ def import_graph(document: ProvDocument, json_data):
         neo_document.graph = json_data['graph']
         neo_document.save()
 
-        create_and_import_meta_provenance(bundle, identifier, json_data)
+        if is_update:
+            update_meta_prov(bundle, identifier, json_data)
+        else:
+            create_and_import_meta_provenance(bundle, identifier, json_data)
 
 
 # leaving this here if some time in future it'd be necessary to split document into individual nodes
@@ -62,7 +65,7 @@ def create_and_import_meta_provenance(bundle, new_entity_id, json_data):
         'prov:type': 'prov:bundle'
     }
 
-    token.update({'prov:type': 'prov:bundle'})
+    token.update({'prov:type': 'prov:bundle', 'prov:version': 1})
     first_version = Entity()
     first_version.identifier = new_entity_id
     first_version.attributes = token
@@ -74,6 +77,40 @@ def create_and_import_meta_provenance(bundle, new_entity_id, json_data):
     meta_bundle.contains.connect(gen_entity)
     meta_bundle.contains.connect(first_version)
     first_version.specialization_of.connect(gen_entity)
+
+
+def update_meta_prov(bundle, new_entity_id, json_data):
+    token = json_data['token']['data']
+    token['signature'] = json_data['token']['signature']
+
+    meta_identifier = token['originatorId'] + '_' + get_main_activity_id(bundle)
+
+    meta_bundle = Bundle.nodes.get(identifier=meta_identifier)
+    gen_entity = None
+    latest_entity = None
+    latest_version = 0
+
+    for entity in meta_bundle.contains.all():
+        if str(entity.identifier) == 'gen_entity':
+            gen_entity = entity
+            continue
+
+        version = entity.attributes['prov:version']
+        if latest_version < version:
+            latest_version = version
+            latest_entity = entity
+
+
+    token.update({'prov:type': 'prov:bundle', 'prov:version': latest_version + 1})
+    new_version = Entity()
+    new_version.identifier = new_entity_id
+    new_version.attributes = token
+
+    new_version.save()
+
+    meta_bundle.contains.connect(new_version)
+    new_version.specialization_of.connect(gen_entity)
+    new_version.was_derived_from.connect(latest_entity, {'attributes': {'prov:type': 'prov:Revision'}})
 
 
 def get_main_activity_id(bundle):

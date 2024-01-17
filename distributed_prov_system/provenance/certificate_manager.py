@@ -39,7 +39,12 @@ class CertManager(object):
         return self._primary_cert
 
     def get_all_certs(self):
-        return [self._primary_cert] + [self._secondary_certs]
+        all_certs = [self._primary_cert]
+
+        if self._secondary_certs:
+            all_certs.append(self._secondary_certs)
+
+        return all_certs
 
 
 cert_manager = CertManager()

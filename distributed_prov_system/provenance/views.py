@@ -17,15 +17,19 @@ def confirm_store_to_trusted_party():
 
 
 @csrf_exempt
-@require_http_methods(["GET", "POST"])
+@require_http_methods(["GET", "POST", "PUT"])
 def graph(request, organization_id, graph_id):
     if request.method == 'POST':
         return graphs_post(request, organization_id, graph_id)
+    elif request.method == "PUT":
+        # TODO -- check that graph_id exists and is from the same meta-prov
+        # TODO -- check that id of the new graph from request does not already exist
+        return graphs_post(request, organization_id, graph_id, is_update=True)
     else:
         return graphs_get(request, organization_id, graph_id)
 
 
-def graphs_post(request, organization_id, graph_id):
+def graphs_post(request, organization_id, graph_id, is_update=False):
     json_data = json.loads(request.body)
 
     try:
@@ -41,7 +45,7 @@ def graphs_post(request, organization_id, graph_id):
         raise BadRequest("Incorrect hash")
 
     document = validator.get_document()
-    import_graph(document, json_data)
+    import_graph(document, json_data, is_update)
 
     confirm_store_to_trusted_party()
 

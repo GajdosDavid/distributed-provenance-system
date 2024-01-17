@@ -50,9 +50,9 @@ class GraphInputValidator:
         assert self._prov_document.has_bundles(), 'No bundles inside the document!'
         assert len(self._prov_document.bundles) == 1, 'Only one bundle allowed in document!'
 
-        for bundle in self._prov_document.bundles:
-            if bundle.identifier.localpart != graph_id:
-                raise ValueError()
+        # for bundle in self._prov_document.bundles:
+        #     if bundle.identifier.localpart != graph_id:
+        #         raise ValueError()
 
     def _hash_matches(self):
         digest = hashes.Hash(hashes.SHA256())
