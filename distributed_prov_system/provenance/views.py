@@ -4,6 +4,7 @@ from django.views.decorators.http import require_http_methods, require_GET
 from django.core.exceptions import BadRequest
 from neomodel.exceptions import DoesNotExist
 
+from .models import Document
 from prov2neomodel.prov2neomodel import import_graph
 import cryptography.exceptions
 import json
@@ -36,7 +37,15 @@ def graphs_post(request, organization_id, graph_id, is_update=False):
         validator = GraphInputValidator(json_data)
         validator.verify_token()
         validator.validate_token(organization_id)
-        validator.validate_graph(graph_id)
+        
+        try:
+            # check if document already exists
+            Document.nodes.get(identifier=f"{organization_id}_{graph_id}")
+
+            return HttpResponse("Graph with such ID already exists", status=500)
+        except DoesNotExist:
+            pass
+        validator.validate_graph(graph_id, request.method == 'POST')
     except cryptography.exceptions.InvalidSignature:
         raise BadRequest("Invalid signature")
     except InvalidGraph:

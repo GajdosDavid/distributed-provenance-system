@@ -1,9 +1,10 @@
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding
-from prov.model import ProvDocument
+from prov.model import ProvDocument, ProvEntity, ProvActivity
 import base64
 import jcs
 import cryptography.exceptions
+import requests
 
 from .certificate_manager import cert_manager
 
@@ -24,6 +25,7 @@ class GraphInputValidator:
         self._signature = base64.b64decode(self._token['signature'])
 
         self._prov_document = None
+        self._prov_bundle = None
 
     def get_document(self):
         if self._prov_document is None:
@@ -42,17 +44,78 @@ class GraphInputValidator:
         if not self._hash_matches():
             raise IncorrectHash()
 
-    def validate_graph(self, graph_id):
-        # TODO -- check that graph is normalized + contains resolvable PIDs
+    def validate_graph(self, graph_id, is_post=True):
         # TODO -- find out format from the grpah
         self._prov_document = ProvDocument.deserialize(content=self._graph, format="rdf")
 
         assert self._prov_document.has_bundles(), 'No bundles inside the document!'
         assert len(self._prov_document.bundles) == 1, 'Only one bundle allowed in document!'
 
-        # for bundle in self._prov_document.bundles:
-        #     if bundle.identifier.localpart != graph_id:
-        #         raise ValueError()
+        for bundle in self._prov_document.bundles:
+            self._prov_bundle = bundle
+
+        if not self._are_pids_resolvable() or not self._is_graph_normalized():
+            raise ValueError()
+
+        if is_post and self._prov_bundle.identifier.localpart != graph_id:
+            raise ValueError()
+
+    def _is_graph_normalized(self):
+        # TODO -- implement
+        return True
+
+    def _are_pids_resolvable(self):
+        forward_connectors = []
+        backward_connectors = []
+        main_activity = None
+
+        for entity in self._prov_bundle.get_records(ProvEntity):
+            prov_types = entity.get_asserted_types()
+
+            if prov_types is None:
+                continue
+
+            for t in prov_types:
+                if t.localpart == 'forwardConnector':
+                    forward_connectors.append(entity)
+                elif t.localpart == 'backwardConnector':
+                    backward_connectors.append(entity)
+
+        for activity in self._prov_bundle.get_records(ProvActivity):
+            prov_types = activity.get_asserted_types()
+
+            if prov_types is None:
+                continue
+
+            for t in prov_types:
+                if t.localpart == 'mainActivity':
+                    if main_activity is not None:
+                        # Only one main_activity allowed
+                        return False
+
+                    main_activity = activity
+                    break
+
+        for connector in forward_connectors:
+            if not self._is_pid_resolvable(connector):
+                return False
+
+        for connector in backward_connectors:
+            if not self._is_pid_resolvable(connector):
+                return False
+
+        # TODO -- uncomment once the question about mainActivity is resolved with Wittner
+#        if not self._is_pid_resolvable(main_activity):
+ #           return False
+
+        return True
+
+    def _is_pid_resolvable(self, connector):
+        url = connector.identifier.uri
+
+        resp = requests.get(url)
+
+        return resp.status_code == 200
 
     def _hash_matches(self):
         digest = hashes.Hash(hashes.SHA256())

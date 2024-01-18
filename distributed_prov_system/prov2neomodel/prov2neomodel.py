@@ -9,6 +9,7 @@ def import_graph(document: ProvDocument, json_data, is_update=False):
 
     for bundle in document.bundles:
         token = json_data['token']
+        # TODO -- change the delimiter to something different (if localpart is e.g. 05_neco.provn the splitting then won't work)
         identifier = f"{token['data']['originatorId']}_{bundle.identifier.localpart}"
 
         neo_document = Document()
