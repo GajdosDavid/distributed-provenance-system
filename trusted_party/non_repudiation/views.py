@@ -2,6 +2,7 @@ from django.http import HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods, require_GET
 
+
 @csrf_exempt
 @require_GET
 def organizations(request):
@@ -29,6 +30,7 @@ def retrieve_all_certs(request, org_id):
 
 def store_cert_for_verification(request, org_id):
     pass
+
 
 @csrf_exempt
 @require_http_methods(["GET", "DELETE"])
