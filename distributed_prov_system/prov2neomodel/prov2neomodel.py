@@ -1,26 +1,35 @@
+import uuid
 from datetime import datetime
-from prov.model import ProvDocument, ProvElement, ProvRelation, ProvActivity, QualifiedName
+from prov.model import ProvDocument, ProvElement, ProvRelation, ProvActivity
 from .mappers import prov2neo_mappers
 from provenance.models import Bundle, Entity, Document
+from neomodel.exceptions import DoesNotExist
 
 
-def import_graph(document: ProvDocument, json_data, is_update=False):
+def import_graph(document: ProvDocument, json_data, token, is_update=False):
     assert len(document.bundles) == 1, 'Only one bundle expected per document'
+    organization_id = token['data']['originatorId']
 
     for bundle in document.bundles:
-        token = json_data['token']
-        # TODO -- change the delimiter to something different (if localpart is e.g. 05_neco.provn the splitting then won't work)
-        identifier = f"{token['data']['originatorId']}_{bundle.identifier.localpart}"
+        identifier = f"{organization_id}_{bundle.identifier.localpart}"
 
         neo_document = Document()
         neo_document.identifier = identifier
         neo_document.graph = json_data['graph']
         neo_document.save()
 
+        main_activity_id = get_main_activity_id(bundle)
         if is_update:
-            update_meta_prov(bundle, identifier, json_data)
+            update_meta_prov(main_activity_id, identifier, json_data)
         else:
-            create_and_import_meta_provenance(bundle, identifier, json_data)
+            try:
+                meta_bundle = Bundle.nodes.get(identifier=f"{organization_id}_{main_activity_id}")
+            except DoesNotExist:
+                meta_bundle = Bundle()
+                meta_bundle.identifier = token['originatorId'] + '_' + main_activity_id
+                meta_bundle.save()
+
+            store_into_meta_prov(meta_bundle, identifier, token)
 
 
 # leaving this here if some time in future it'd be necessary to split document into individual nodes
@@ -37,7 +46,7 @@ def __import_graph__(document: ProvDocument, json_data):
         neo_bundle.timestamp = datetime.fromtimestamp(json_data['timestamp'])
         neo_bundle.save()
 
-        create_and_import_meta_provenance(str(bundle.identifier), json_data)
+        # create_and_import_meta_provenance(str(bundle.identifier), json_data)
 
         for prov_elem in bundle.get_records(ProvElement):
             import_element(neo_bundle, prov_elem, models)
@@ -53,38 +62,32 @@ def __import_graph__(document: ProvDocument, json_data):
         # results, meta = db.cypher_query(query, None, resolve_objects=True)
 
 
-def create_and_import_meta_provenance(bundle, new_entity_id, json_data):
-    token = json_data['token']['data']
-    token['signature'] = json_data['token']['signature']
-
-    meta_bundle = Bundle()
-    meta_bundle.identifier = token['originatorId'] + '_' + get_main_activity_id(bundle)
-
+def store_into_meta_prov(meta_bundle, new_entity_id, token):
     gen_entity = Entity()
-    gen_entity.identifier = 'gen_entity'
+    gen_entity.identifier = str(uuid.uuid4()) + '_gen_entity'
     gen_entity.attributes = {
         'prov:type': 'prov:bundle'
     }
 
-    token.update({'prov:type': 'prov:bundle', 'prov:version': 1})
+    attributes = token
+    attributes.update({'prov:type': 'prov:bundle', 'pav:version': 1})
     first_version = Entity()
     first_version.identifier = new_entity_id
-    first_version.attributes = token
+    first_version.attributes = attributes
 
     first_version.save()
     gen_entity.save()
-    meta_bundle.save()
 
     meta_bundle.contains.connect(gen_entity)
     meta_bundle.contains.connect(first_version)
     first_version.specialization_of.connect(gen_entity)
 
 
-def update_meta_prov(bundle, new_entity_id, json_data):
+def update_meta_prov(main_activity_id, new_entity_id, json_data):
     token = json_data['token']['data']
     token['signature'] = json_data['token']['signature']
 
-    meta_identifier = token['originatorId'] + '_' + get_main_activity_id(bundle)
+    meta_identifier = token['originatorId'] + '_' + main_activity_id
 
     meta_bundle = Bundle.nodes.get(identifier=meta_identifier)
     gen_entity = None

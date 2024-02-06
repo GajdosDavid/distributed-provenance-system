@@ -11,6 +11,10 @@ from .validators import (InputGraphChecker, send_signature_verification_request,
 import provenance.controller as controller
 
 
+def send_token_request_to_TP():
+    return {"data": "foo"}
+
+
 @csrf_exempt
 @require_http_methods(["GET", "POST", "PUT"])
 def graph(request, organization_id, graph_id):
@@ -26,6 +30,11 @@ def graph(request, organization_id, graph_id):
 def graphs_post(request, organization_id, graph_id, is_update=False):
     json_data = json.loads(request.body)
 
+    expected_json_fields = ('graph', 'signature')
+    for field in expected_json_fields:
+        if field not in json_data:
+            return JsonResponse({"error": f"Mandatory field '{field}' not present in request!"}, status=400)
+
     resp = send_signature_verification_request(json_data)
     if resp.status_code != 200:
         return JsonResponse({"error": "Unverifiable signature."
@@ -37,17 +46,18 @@ def graphs_post(request, organization_id, graph_id, is_update=False):
 
     try:
         validator = InputGraphChecker(json_data['graph'])
-        validator.validate_graph(graph_id, is_update)
+        validator.validate_graph(graph_id)
     except (IncorrectPIDs, HasNoBundles, TooManyBundles, DocumentError) as e:
         error_msg = str(e)
         return JsonResponse({"error": error_msg}, status=400)
 
     # TODO -- generate non-repudiation token
+    token = send_token_request_to_TP()
 
     document = validator.get_document()
-    import_graph(document, json_data, is_update)
+    import_graph(document, json_data, token, is_update)
 
-    return HttpResponse(status=200)
+    return JsonResponse({"token": token}, status=200)
 
 
 def graphs_get(request, organization_id, graph_id):

@@ -58,7 +58,7 @@ class InputGraphChecker:
             raise ValueError("Prov graph not yet validated")
         return self._prov_document
 
-    def validate_graph(self, graph_id, is_post=True):
+    def validate_graph(self, graph_id):
         # TODO -- find out format from the grpah
         self._prov_document = ProvDocument.deserialize(content=self._graph, format="rdf")
 
@@ -68,7 +68,7 @@ class InputGraphChecker:
         if len(self._prov_document.bundles) != 1:
             raise TooManyBundles('Only one bundle expected in document!')
 
-        # this will happen only once, however cannot be indexed so it needs to be done inside loop
+        # this will happen only once, however cannot be indexed, so it needs to be done inside loop
         for bundle in self._prov_document.bundles:
             self._prov_bundle = bundle
 
@@ -77,10 +77,11 @@ class InputGraphChecker:
             raise IncorrectPIDs(error_msg)
 
         if not self._is_graph_normalized():
-            raise ValueError()
+            raise DocumentError(f'The bundle with id={self._prov_bundle.identifier.localpart} is not normalized.')
 
-        if is_post and self._prov_bundle.identifier.localpart != graph_id:
-            raise ValueError()
+        if self._prov_bundle.identifier.localpart != graph_id:
+            raise DocumentError(f'The bundle id={self._prov_bundle.identifier.localpart} does not match the one '
+                                f'specified id={graph_id} from query.')
 
     def _is_graph_normalized(self):
         # TODO -- implement
