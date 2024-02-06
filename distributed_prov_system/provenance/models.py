@@ -102,6 +102,8 @@ class Entity(BaseProvClass):
     alternate_of = RelationshipTo('Entity', 'alternate_of')
     had_member = RelationshipTo('Entity', 'had_member')
 
+    contains = RelationshipFrom('Bundle', 'contains')
+
 
 class Activity(BaseProvClass):
     start_time = DateTimeFormatProperty(format='%Y-%m-%dT%H:%M:%S')
@@ -133,4 +135,5 @@ class Bundle(BaseProvClass):
 
 class Document(StructuredNode):
     identifier = StringProperty()
+    signature = StringProperty()
     graph = StringProperty()

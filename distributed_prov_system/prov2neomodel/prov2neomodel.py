@@ -6,7 +6,7 @@ from provenance.models import Bundle, Entity, Document
 from neomodel.exceptions import DoesNotExist
 
 
-def import_graph(document: ProvDocument, json_data, token, is_update=False):
+def import_graph(document: ProvDocument, json_data, token, graph_id, is_update=False):
     assert len(document.bundles) == 1, 'Only one bundle expected per document'
     signature = token['signature']
     token = token['data']
@@ -19,11 +19,12 @@ def import_graph(document: ProvDocument, json_data, token, is_update=False):
         neo_document = Document()
         neo_document.identifier = identifier
         neo_document.graph = json_data['graph']
+        neo_document.signature = json_data['signature']
         neo_document.save()
 
         main_activity_id = get_main_activity_id(bundle)
         if is_update:
-            update_meta_prov(main_activity_id, identifier, json_data)
+            update_meta_prov(graph_id, identifier, token, main_activity_id)
         else:
             try:
                 meta_bundle = Bundle.nodes.get(identifier=f"{organization_id}_{main_activity_id}")
@@ -86,32 +87,21 @@ def store_into_meta_prov(meta_bundle, new_entity_id, token):
     first_version.specialization_of.connect(gen_entity)
 
 
-def update_meta_prov(main_activity_id, new_entity_id, json_data):
-    token = json_data['token']['data']
-    token['signature'] = json_data['token']['signature']
+def update_meta_prov(graph_id, new_entity_id, token, main_activity_id):
+    attributes = token
 
-    meta_identifier = token['originatorId'] + '_' + main_activity_id
+    meta_bundle = Bundle.nodes.get(identifier=token['originatorId'] + '_' + main_activity_id)
+    latest_entity = Entity.nodes.get(identifier=token['originatorId'] + '_' + graph_id)
+    gen_entities = list(latest_entity.specialization_of.all())
+    assert len(gen_entities) == 1, "Only one gen entity can be specified for version chain!"
+    gen_entity = gen_entities[0]
 
-    meta_bundle = Bundle.nodes.get(identifier=meta_identifier)
-    gen_entity = None
-    latest_entity = None
-    latest_version = 0
+    latest_version = latest_entity.attributes['pav:version']
+    attributes.update({'prov:type': 'prov:bundle', 'pav:version': latest_version + 1})
 
-    for entity in meta_bundle.contains.all():
-        if str(entity.identifier) == 'gen_entity':
-            gen_entity = entity
-            continue
-
-        version = entity.attributes['prov:version']
-        if latest_version < version:
-            latest_version = version
-            latest_entity = entity
-
-
-    token.update({'prov:type': 'prov:bundle', 'prov:version': latest_version + 1})
     new_version = Entity()
     new_version.identifier = new_entity_id
-    new_version.attributes = token
+    new_version.attributes = attributes
 
     new_version.save()
 

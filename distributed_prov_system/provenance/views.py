@@ -6,7 +6,7 @@ from neomodel.exceptions import DoesNotExist
 from prov2neomodel.prov2neomodel import import_graph
 import json
 
-from .validators import (InputGraphChecker, send_signature_verification_request, graph_already_exists,
+from .validators import (InputGraphChecker, send_signature_verification_request, graph_exists, check_graph_id_belongs_to_meta,
                          IncorrectPIDs, HasNoBundles, TooManyBundles, DocumentError)
 import provenance.controller as controller
 from distributed_prov_system.settings import config
@@ -30,15 +30,15 @@ def get_dummy_token():
 @require_http_methods(["GET", "POST", "PUT"])
 def graph(request, organization_id, graph_id):
     if request.method == 'POST':
-        return graphs_post(request, organization_id, graph_id)
+        return store_graph(request, organization_id, graph_id)
     elif request.method == "PUT":
         # TODO -- check that graph_id exists and is from the same meta-prov
-        return graphs_post(request, organization_id, graph_id, is_update=True)
+        return store_graph(request, organization_id, graph_id, is_update=True)
     else:
         return graphs_get(request, organization_id, graph_id)
 
 
-def graphs_post(request, organization_id, graph_id, is_update=False):
+def store_graph(request, organization_id, graph_id, is_update=False):
     json_data = json.loads(request.body)
 
     expected_json_fields = ('graph', 'signature')
@@ -49,11 +49,17 @@ def graphs_post(request, organization_id, graph_id, is_update=False):
     validator = InputGraphChecker(json_data['graph'])
     validator.parse_graph()
     try:
-        validator.check_ids_match(graph_id)
+        if is_update:
+            check_graph_id_belongs_to_meta(validator.get_main_activity_id(), graph_id, organization_id)
+            if not graph_exists(organization_id, graph_id):
+                return JsonResponse({"error": f"Graph with id={graph_id} does not exist. Please check whether the ID"
+                                              f" you have given is correct."}, status=404)
+        else:
+            validator.check_ids_match(graph_id)
     except DocumentError as e:
         return JsonResponse({"error": str(e)}, status=400)
 
-    if graph_already_exists(organization_id, graph_id):
+    if graph_exists(organization_id, validator.get_bundle_id()):
         return JsonResponse({"error": f"Graph with id '{graph_id}' already "
                                       f"exists under organization '{organization_id}'."}, status=409)
 
@@ -74,7 +80,7 @@ def graphs_post(request, organization_id, graph_id, is_update=False):
     token = get_dummy_token()
 
     document = validator.get_document()
-    import_graph(document, json_data, token.copy(), is_update)
+    import_graph(document, json_data, token.copy(),graph_id, is_update)
 
     return JsonResponse({"token": token}, status=200)
 

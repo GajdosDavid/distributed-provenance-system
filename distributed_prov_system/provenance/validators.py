@@ -1,12 +1,11 @@
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding
 from prov.model import ProvDocument, ProvEntity, ProvActivity
+from neomodel.match import Traversal, INCOMING
 import base64
-import jcs
-import cryptography.exceptions
 import requests
 
-from .models import Document
+from .models import Document, Bundle, Entity
 from neomodel.exceptions import DoesNotExist
 from distributed_prov_system.settings import config
 
@@ -27,7 +26,7 @@ class DocumentError(Exception):
     pass
 
 
-def graph_already_exists(organization_id, graph_id) -> bool:
+def graph_exists(organization_id, graph_id) -> bool:
     try:
         # check if document already exists
         Document.nodes.get(identifier=f"{organization_id}_{graph_id}")
@@ -35,6 +34,24 @@ def graph_already_exists(organization_id, graph_id) -> bool:
         return True
     except DoesNotExist:
         return False
+
+
+def check_graph_id_belongs_to_meta(main_activity_id, graph_id, organization_id):
+    entity = Entity.nodes.get(identifier=f'{organization_id}_{graph_id}')
+    definition = dict(node_class=Entity, direction=INCOMING,
+                      relation_type="was_derived_from", model=None)
+    entity_traversal = Traversal(entity, Entity.__label__, definition)
+    if len(list(entity_traversal.all())) != 0:
+        raise DocumentError(f"Graph with given id={graph_id} is not the latest version."
+                            f" CPM does not allow version forks.")
+
+    meta_bundle = list(entity.contains.all())
+    assert len(meta_bundle) == 1, "Entity cannot be part of more than one meta bundles"
+
+    if meta_bundle[0].identifier != f'{organization_id}_{main_activity_id}':
+        meta_id = meta_bundle[0].identifier.split('_', 1)
+        raise DocumentError(f"Graph with id={graph_id} is part of meta bundle with id={meta_id[0]},"
+                            f" however main_activity from given bundle is resolvable to different id={main_activity_id}")
 
 
 def send_signature_verification_request(json_data, organization_id):
@@ -53,11 +70,22 @@ class InputGraphChecker:
 
         self._prov_document = None
         self._prov_bundle = None
+        self._main_activity= None
 
     def get_document(self):
         assert self._prov_document is not None, "Graph not yet parsed"
 
         return self._prov_document
+
+    def get_bundle_id(self):
+        assert self._prov_bundle is not None, "Graph not yet parsed"
+
+        return self._prov_bundle.identifier.localpart
+
+    def get_main_activity_id(self):
+        assert self._prov_bundle is not None, "Graph not yet parsed"
+
+        return self._main_activity.identifier.localpart
 
     def parse_graph(self):
         # TODO -- find out format from the grpah
@@ -67,12 +95,12 @@ class InputGraphChecker:
         for bundle in self._prov_document.bundles:
             self._prov_bundle = bundle
 
+        self._main_activity = self._retrieve_main_activity()
+
     def check_ids_match(self, graph_id):
         if self._prov_bundle.identifier.localpart != graph_id:
             raise DocumentError(f'The bundle id={self._prov_bundle.identifier.localpart} does not match the '
                                 f'specified id={graph_id} from query.')
-
-        return True
 
     def validate_graph(self, graph_id):
         assert self._prov_document is not None and self._prov_bundle is not None, 'Parse the graph first!s'
@@ -96,7 +124,6 @@ class InputGraphChecker:
 
     def _are_pids_resolvable(self):
         forward_connectors, backward_connectors = self._retrieve_backward_and_forward_conns()
-        main_activity = self._retrieve_main_activity()
 
         for connector in forward_connectors:
             if not self._is_pid_resolvable(connector):
@@ -117,9 +144,11 @@ class InputGraphChecker:
 
         resp = requests.get(url)
 
-        return resp.status_code == 200
+        return resp.ok
 
     def _retrieve_main_activity(self):
+        # TODO -- rather retrieve what this resolves to and not the id of activity
+        # TODO -- check that this resolves to my IP
         main_activity = None
 
         for activity in self._prov_bundle.get_records(ProvActivity):
