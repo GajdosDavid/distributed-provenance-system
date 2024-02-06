@@ -1,4 +1,4 @@
-from django.http import HttpResponse, JsonResponse
+from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods, require_GET
 from neomodel.exceptions import DoesNotExist
@@ -9,10 +9,21 @@ import json
 from .validators import (InputGraphChecker, send_signature_verification_request, graph_already_exists,
                          IncorrectPIDs, HasNoBundles, TooManyBundles, DocumentError)
 import provenance.controller as controller
+from distributed_prov_system.settings import config
+import requests
 
 
-def send_token_request_to_TP():
-    return {"data": {"originatorId": "jaJsemBuh"}, "signature": "abcdefghjk"}
+def send_token_request_to_TP(json_data):
+    url = 'http://' + config.tp_fqdn + '/issueToken'
+
+    resp = requests.post(url, json_data)
+
+    assert resp.ok, f'Could not issue token, status code={resp.status_code}'
+    return json.loads(resp.content)
+
+
+def get_dummy_token():
+    return {"data": {"originatorId": "jaJsemBuh"}, "signature": "abcdefu"}
 
 
 @csrf_exempt
@@ -47,8 +58,8 @@ def graphs_post(request, organization_id, graph_id, is_update=False):
                                       f"exists under organization '{organization_id}'."}, status=409)
 
     # TODO -- uncomment once Trusted party is implemented and running
-    # resp = send_signature_verification_request(json_data)
-    # if resp.status_code != 200:
+    # resp = send_signature_verification_request(json_data.copy(), organization_id)
+    # if not resp.ok:
     #     return JsonResponse({"error": "Unverifiable signature."
     #                                   " Make sure to register your certificate with trusted party first."}, status=401)
 
@@ -58,8 +69,9 @@ def graphs_post(request, organization_id, graph_id, is_update=False):
         error_msg = str(e)
         return JsonResponse({"error": error_msg}, status=400)
 
-    # TODO -- generate non-repudiation token
-    token = send_token_request_to_TP()
+    # TODO -- uncomment once TP is implemented and running
+    # token = send_token_request_to_TP(json_data)
+    token = get_dummy_token()
 
     document = validator.get_document()
     import_graph(document, json_data, token.copy(), is_update)

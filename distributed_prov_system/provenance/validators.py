@@ -37,9 +37,10 @@ def graph_already_exists(organization_id, graph_id) -> bool:
         return False
 
 
-def send_signature_verification_request(json_data):
+def send_signature_verification_request(json_data, organization_id):
     url = 'http://' + config.tp_fqdn + '/verify'
 
+    json_data['organizationId'] = organization_id
     resp = requests.post(url, json_data)
 
     return resp
