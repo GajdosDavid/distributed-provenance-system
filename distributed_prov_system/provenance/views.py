@@ -1,20 +1,14 @@
 from django.http import HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods, require_GET
-from django.core.exceptions import BadRequest
 from neomodel.exceptions import DoesNotExist
 
-from .models import Document
 from prov2neomodel.prov2neomodel import import_graph
-import cryptography.exceptions
 import json
 
-from .validators import GraphInputValidator, InvalidGraph, IncorrectHash
+from .validators import (InputGraphChecker, send_signature_verification_request, graph_already_exists,
+                         IncorrectPIDs, HasNoBundles, TooManyBundles, DocumentError)
 import provenance.controller as controller
-
-
-def confirm_store_to_trusted_party():
-    pass
 
 
 @csrf_exempt
@@ -24,7 +18,6 @@ def graph(request, organization_id, graph_id):
         return graphs_post(request, organization_id, graph_id)
     elif request.method == "PUT":
         # TODO -- check that graph_id exists and is from the same meta-prov
-        # TODO -- check that id of the new graph from request does not already exist
         return graphs_post(request, organization_id, graph_id, is_update=True)
     else:
         return graphs_get(request, organization_id, graph_id)
@@ -33,32 +26,28 @@ def graph(request, organization_id, graph_id):
 def graphs_post(request, organization_id, graph_id, is_update=False):
     json_data = json.loads(request.body)
 
-    try:
-        validator = GraphInputValidator(json_data)
-        validator.verify_token()
-        validator.validate_token(organization_id)
-        
-        try:
-            # check if document already exists
-            Document.nodes.get(identifier=f"{organization_id}_{graph_id}")
+    resp = send_signature_verification_request(json_data)
+    if resp.status_code != 200:
+        return JsonResponse({"error": "Unverifiable signature."
+                                      " Make sure to register your certificate with trusted party first."}, status=401)
 
-            return HttpResponse("Graph with such ID already exists", status=500)
-        except DoesNotExist:
-            pass
-        validator.validate_graph(graph_id, request.method == 'POST')
-    except cryptography.exceptions.InvalidSignature:
-        raise BadRequest("Invalid signature")
-    except InvalidGraph:
-        raise BadRequest("Incorrect graph")
-    except IncorrectHash:
-        raise BadRequest("Incorrect hash")
+    if graph_already_exists(organization_id, graph_id):
+        return JsonResponse({"error": f"Graph with id '{graph_id}' already "
+                                      f"exists under organization {organization_id}."}, status=409)
+
+    try:
+        validator = InputGraphChecker(json_data['graph'])
+        validator.validate_graph(graph_id, is_update)
+    except (IncorrectPIDs, HasNoBundles, TooManyBundles, DocumentError) as e:
+        error_msg = str(e)
+        return JsonResponse({"error": error_msg}, status=400)
+
+    # TODO -- generate non-repudiation token
 
     document = validator.get_document()
     import_graph(document, json_data, is_update)
 
-    confirm_store_to_trusted_party()
-
-    return HttpResponse("Alles gut")
+    return HttpResponse(status=200)
 
 
 def graphs_get(request, organization_id, graph_id):

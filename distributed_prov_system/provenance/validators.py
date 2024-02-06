@@ -6,23 +6,49 @@ import jcs
 import cryptography.exceptions
 import requests
 
-from .certificate_manager import cert_manager
+from .models import Document
+from neomodel.exceptions import DoesNotExist
+from distributed_prov_system.settings import config
 
 
-class InvalidGraph(Exception):
+class HasNoBundles(Exception):
     pass
 
 
-class IncorrectHash(Exception):
+class TooManyBundles(Exception):
     pass
 
 
-class GraphInputValidator:
+class IncorrectPIDs(Exception):
+    pass
 
-    def __init__(self, json_data):
-        self._graph = base64.b64decode(json_data['graph'])
-        self._token = json_data['token']
-        self._signature = base64.b64decode(self._token['signature'])
+
+class DocumentError(Exception):
+    pass
+
+
+def graph_already_exists(organization_id, graph_id) -> bool:
+    try:
+        # check if document already exists
+        Document.nodes.get(identifier=f"{organization_id}_{graph_id}")
+
+        return True
+    except DoesNotExist:
+        return False
+
+
+def send_signature_verification_request(json_data):
+    url = 'http://' + config.tp_fqdn + '/verify'
+
+    resp = requests.post(url, json_data)
+
+    return resp
+
+
+class InputGraphChecker:
+
+    def __init__(self, graph):
+        self._graph = base64.b64decode(graph)
 
         self._prov_document = None
         self._prov_bundle = None
@@ -32,29 +58,25 @@ class GraphInputValidator:
             raise ValueError("Prov graph not yet validated")
         return self._prov_document
 
-    def verify_token(self):
-        if not self._verify_signature():
-            raise cryptography.exceptions.InvalidSignature()
-
-    def validate_token(self, organization_id):
-        # TODO -- assert all the mandatory fields are present in token
-        if self._token['data']['originatorId'] != organization_id:
-            raise ValueError()
-
-        if not self._hash_matches():
-            raise IncorrectHash()
-
     def validate_graph(self, graph_id, is_post=True):
         # TODO -- find out format from the grpah
         self._prov_document = ProvDocument.deserialize(content=self._graph, format="rdf")
 
-        assert self._prov_document.has_bundles(), 'No bundles inside the document!'
-        assert len(self._prov_document.bundles) == 1, 'Only one bundle allowed in document!'
+        if not self._prov_document.has_bundles():
+            raise HasNoBundles('There are no bundles inside the document!')
 
+        if len(self._prov_document.bundles) != 1:
+            raise TooManyBundles('Only one bundle expected in document!')
+
+        # this will happen only once, however cannot be indexed so it needs to be done inside loop
         for bundle in self._prov_document.bundles:
             self._prov_bundle = bundle
 
-        if not self._are_pids_resolvable() or not self._is_graph_normalized():
+        are_resolvable, error_msg = self._are_pids_resolvable()
+        if not are_resolvable:
+            raise IncorrectPIDs(error_msg)
+
+        if not self._is_graph_normalized():
             raise ValueError()
 
         if is_post and self._prov_bundle.identifier.localpart != graph_id:
@@ -65,9 +87,53 @@ class GraphInputValidator:
         return True
 
     def _are_pids_resolvable(self):
+        forward_connectors, backward_connectors = self._retrieve_backward_and_forward_conns()
+        main_activity = self._retrieve_main_activity()
+
+        for connector in forward_connectors:
+            if not self._is_pid_resolvable(connector):
+                return False, f'ForwardConnector with id={connector.identifier.localpart} has incorrectly resolvable PID'
+
+        for connector in backward_connectors:
+            if not self._is_pid_resolvable(connector):
+                return False, f'BackwardConnector with id={connector.identifier.localpart} has incorrectly resolvable PID'
+
+        # Check for resolvability of MainActivity cannot be done as one meta-prov can contain multiple version chains
+        # if not self._is_pid_resolvable(main_activity):
+        #     return False, f'MainActivity with id={main_activity.identifier.localpar} has incorrectly resolvable PID'
+
+        return True, ""
+
+    def _is_pid_resolvable(self, element):
+        url = element.identifier.uri
+
+        resp = requests.get(url)
+
+        return resp.status_code == 200
+
+    def _retrieve_main_activity(self):
+        main_activity = None
+
+        for activity in self._prov_bundle.get_records(ProvActivity):
+            prov_types = activity.get_asserted_types()
+
+            if prov_types is None:
+                continue
+
+            for t in prov_types:
+                if t.localpart == 'mainActivity':
+                    if main_activity is not None:
+                        raise DocumentError(f"Multiple 'mainActivity' activities specified inside of bundle "
+                                            f"{self._prov_bundle.identifier.localpart}")
+
+                    main_activity = activity
+                    break
+
+        return main_activity
+
+    def _retrieve_backward_and_forward_conns(self):
         forward_connectors = []
         backward_connectors = []
-        main_activity = None
 
         for entity in self._prov_bundle.get_records(ProvEntity):
             prov_types = entity.get_asserted_types()
@@ -81,61 +147,4 @@ class GraphInputValidator:
                 elif t.localpart == 'backwardConnector':
                     backward_connectors.append(entity)
 
-        for activity in self._prov_bundle.get_records(ProvActivity):
-            prov_types = activity.get_asserted_types()
-
-            if prov_types is None:
-                continue
-
-            for t in prov_types:
-                if t.localpart == 'mainActivity':
-                    if main_activity is not None:
-                        # Only one main_activity allowed
-                        return False
-
-                    main_activity = activity
-                    break
-
-        for connector in forward_connectors:
-            if not self._is_pid_resolvable(connector):
-                return False
-
-        for connector in backward_connectors:
-            if not self._is_pid_resolvable(connector):
-                return False
-
-        # TODO -- uncomment once the question about mainActivity is resolved with Wittner
-#        if not self._is_pid_resolvable(main_activity):
- #           return False
-
-        return True
-
-    def _is_pid_resolvable(self, connector):
-        url = connector.identifier.uri
-
-        resp = requests.get(url)
-
-        return resp.status_code == 200
-
-    def _hash_matches(self):
-        digest = hashes.Hash(hashes.SHA256())
-        digest.update(self._graph)
-
-        return self._token['data']['graphImprint'] == digest.finalize().hex()
-
-    def _verify_signature(self):
-        for cert in cert_manager.get_all_certs():
-            try:
-                pk = cert.to_cryptography().public_key()
-                pk.verify(
-                    signature=self._signature,
-                    data=jcs.canonicalize(self._token['data']),
-                    padding=padding.PKCS1v15(),
-                    algorithm=hashes.SHA256()
-                )
-
-                return True
-            except cryptography.exceptions.InvalidSignature:
-                pass
-
-        return False
+        return forward_connectors, backward_connectors

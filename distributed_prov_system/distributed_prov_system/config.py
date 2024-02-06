@@ -4,9 +4,8 @@ import json
 class Config:
 
     def __init__(self, config_path):
-        self.primary_cert = ""
-        self.secondary_certs = []
         self.fqdn = ""
+        self.tp_fqdn = ""
 
         self._load_config(config_path)
 
@@ -14,12 +13,14 @@ class Config:
         with open(config_path, 'r') as f:
             config = json.load(f)
 
-        if "primaryCertificate" in config:
-            self.primary_cert = config['primaryCertificate']
-        if "secondaryCertificates" in config:
-            self.secondary_certs = config['secondaryCertificates']
-        if "fqdn" in config:
-            self.fqdn = config['fqdn']
+        required_config_fields = ("fqdn", "trustedPartyFqdn")
+        for field in required_config_fields:
+            assert field in config, f"{field} missing in config!"
 
-            if self.fqdn[-1] != '/':
-                self.fqdn = self.fqdn + '/'
+        self.fqdn = config['fqdn']
+        if self.fqdn[-1] == '/':
+            self.fqdn = self.fqdn[:-1]
+
+        self.tp_fqdn = config['trustedPartyFqdn']
+        if self.tp_fqdn[-1] == '/':
+            self.tp_fqdn = self.tp_fqdn[:-1]
