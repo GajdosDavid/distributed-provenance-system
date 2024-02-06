@@ -8,7 +8,10 @@ from neomodel.exceptions import DoesNotExist
 
 def import_graph(document: ProvDocument, json_data, token, is_update=False):
     assert len(document.bundles) == 1, 'Only one bundle expected per document'
-    organization_id = token['data']['originatorId']
+    signature = token['signature']
+    token = token['data']
+    token['signature'] = signature
+    organization_id = token['originatorId']
 
     for bundle in document.bundles:
         identifier = f"{organization_id}_{bundle.identifier.localpart}"

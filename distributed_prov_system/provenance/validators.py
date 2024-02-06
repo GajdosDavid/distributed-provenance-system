@@ -54,13 +54,27 @@ class InputGraphChecker:
         self._prov_bundle = None
 
     def get_document(self):
-        if self._prov_document is None:
-            raise ValueError("Prov graph not yet validated")
+        assert self._prov_document is not None, "Graph not yet parsed"
+
         return self._prov_document
 
-    def validate_graph(self, graph_id):
+    def parse_graph(self):
         # TODO -- find out format from the grpah
         self._prov_document = ProvDocument.deserialize(content=self._graph, format="rdf")
+
+        # this will happen only once, however cannot be indexed, so it needs to be done inside loop
+        for bundle in self._prov_document.bundles:
+            self._prov_bundle = bundle
+
+    def check_ids_match(self, graph_id):
+        if self._prov_bundle.identifier.localpart != graph_id:
+            raise DocumentError(f'The bundle id={self._prov_bundle.identifier.localpart} does not match the '
+                                f'specified id={graph_id} from query.')
+
+        return True
+
+    def validate_graph(self, graph_id):
+        assert self._prov_document is not None and self._prov_bundle is not None, 'Parse the graph first!s'
 
         if not self._prov_document.has_bundles():
             raise HasNoBundles('There are no bundles inside the document!')
@@ -68,20 +82,12 @@ class InputGraphChecker:
         if len(self._prov_document.bundles) != 1:
             raise TooManyBundles('Only one bundle expected in document!')
 
-        # this will happen only once, however cannot be indexed, so it needs to be done inside loop
-        for bundle in self._prov_document.bundles:
-            self._prov_bundle = bundle
+        if not self._is_graph_normalized():
+            raise DocumentError(f'The bundle with id={self._prov_bundle.identifier.localpart} is not normalized.')
 
         are_resolvable, error_msg = self._are_pids_resolvable()
         if not are_resolvable:
             raise IncorrectPIDs(error_msg)
-
-        if not self._is_graph_normalized():
-            raise DocumentError(f'The bundle with id={self._prov_bundle.identifier.localpart} is not normalized.')
-
-        if self._prov_bundle.identifier.localpart != graph_id:
-            raise DocumentError(f'The bundle id={self._prov_bundle.identifier.localpart} does not match the one '
-                                f'specified id={graph_id} from query.')
 
     def _is_graph_normalized(self):
         # TODO -- implement
