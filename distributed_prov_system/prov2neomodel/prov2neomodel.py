@@ -68,7 +68,7 @@ def __import_graph__(document: ProvDocument, json_data):
 
 def store_into_meta_prov(meta_bundle, new_entity_id, token):
     gen_entity = Entity()
-    gen_entity.identifier = str(uuid.uuid4()) + '_gen_entity'
+    gen_entity.identifier = new_entity_id + '_gen'
     gen_entity.attributes = {
         'prov:type': 'prov:bundle'
     }

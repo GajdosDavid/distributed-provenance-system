@@ -108,15 +108,15 @@ def graph_meta(request, meta_id):
         return JsonResponse({"error": f"Requested format [{requested_format}] is not supported!"}, status=400)
 
     try:
-        meta = controller.get_meta_provenance(meta_id)
+        g = controller.get_b64_encoded_meta_provenance(meta_id, requested_format)
     except DoesNotExist:
         return JsonResponse({"error": f"The meta-provenance with id [{meta_id}] does not exist"}, status=404)
 
-    # TODO -- obtain token from trusted party
+    # TODO -- uncomment once TP is up and running
+    # t = send_token_request_to_TP({"graph": g})
     t = get_dummy_token()
-    g = meta.serialize(format=requested_format)
 
-    return JsonResponse({"meta-prov": g, "token": t})
+    return JsonResponse({"graph": g, "token": t})
 
 
 @csrf_exempt

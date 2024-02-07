@@ -1,3 +1,5 @@
+import base64
+
 from .models import Document, Entity, Bundle
 from prov2neomodel.neomodel2prov import convert_to_prov
 from prov.model import ProvDocument, ProvBundle
@@ -31,11 +33,13 @@ def get_token(organization_id, graph_id):
     return {"data": token_data, "signature": t.attributes['signature']}
 
 
-def get_meta_provenance(meta_id):
+def get_b64_encoded_meta_provenance(meta_id, requested_format):
     neo_bundle = Bundle.nodes.get(identifier=meta_id)
     meta_document = convert_to_prov(neo_bundle)
 
-    return meta_document
+    g = meta_document.serialize(format=requested_format)
+
+    return base64.b64encode(g.encode('utf-8')).decode('utf-8')
 
 
 def retrieve_subgraph(graph, is_domain_specific=True):
