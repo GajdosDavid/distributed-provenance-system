@@ -73,7 +73,8 @@ def store_into_meta_prov(meta_bundle, new_entity_id, token):
         'prov:type': 'prov:bundle'
     }
 
-    attributes = token
+    # attributes = token
+    attributes = dict()
     attributes.update({'prov:type': 'prov:bundle', 'pav:version': 1})
     first_version = Entity()
     first_version.identifier = new_entity_id
@@ -88,7 +89,8 @@ def store_into_meta_prov(meta_bundle, new_entity_id, token):
 
 
 def update_meta_prov(graph_id, new_entity_id, token, main_activity_id):
-    attributes = token
+    # attributes = token
+    attributes = dict()
 
     meta_bundle = Bundle.nodes.get(identifier=main_activity_id)
     latest_entity = Entity.nodes.get(identifier=token['originatorId'] + '_' + graph_id)
