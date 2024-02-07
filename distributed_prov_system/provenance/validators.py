@@ -54,11 +54,11 @@ def check_graph_id_belongs_to_meta(main_activity_id, graph_id, organization_id):
                             f" however main_activity from given bundle is resolvable to different id={main_activity_id}")
 
 
-def send_signature_verification_request(json_data, organization_id):
+def send_signature_verification_request(payload, organization_id):
     url = 'http://' + config.tp_fqdn + '/verify'
 
-    json_data['organizationId'] = organization_id
-    resp = requests.post(url, json_data)
+    payload['organizationId'] = organization_id
+    resp = requests.post(url, payload)
 
     return resp
 

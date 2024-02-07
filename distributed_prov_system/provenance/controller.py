@@ -21,14 +21,14 @@ def get_subgraph(organization_id, graph_id, is_domain_specific=True, format='rdf
 def get_token(organization_id, graph_id):
     t = Entity.nodes.get(identifier=f"{organization_id}_{graph_id}")
 
-    token = {
+    token_data = {
         "originatorId": t.attributes['originatorId'],
         "authorityId": t.attributes['authorityId'],
         "tokenTimestamp": t.attributes['tokenTimestamp'],
         "messageTimestamp": t.attributes['messageTimestamp'],
         "graphImprint": t.attributes['graphImprint']
     }
-    return {"data": token, "signature": t.attributes['signature']}
+    return {"data": token_data, "signature": t.attributes['signature']}
 
 
 def get_meta_provenance(organization_id, meta_id):

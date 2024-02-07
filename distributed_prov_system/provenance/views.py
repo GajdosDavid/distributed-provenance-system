@@ -13,10 +13,10 @@ from distributed_prov_system.settings import config
 import requests
 
 
-def send_token_request_to_TP(json_data):
+def send_token_request_to_TP(payload):
     url = 'http://' + config.tp_fqdn + '/issueToken'
 
-    resp = requests.post(url, json_data)
+    resp = requests.post(url, payload)
 
     assert resp.ok, f'Could not issue token, status code={resp.status_code}'
     return json.loads(resp.content)
@@ -90,7 +90,8 @@ def graphs_get(request, organization_id, graph_id):
         g = controller.get_provenance(organization_id, graph_id)
         t = controller.get_token(organization_id, graph_id)
     except DoesNotExist:
-        return JsonResponse({"error": "Not good"}, status=404)
+        return JsonResponse({"error": f"Could not retrieve a resource with id [{graph_id}] "
+                                      f"under organization [{organization_id}]"}, status=404)
 
     return JsonResponse({"graph": g, "token": t})
 
@@ -98,14 +99,20 @@ def graphs_get(request, organization_id, graph_id):
 @csrf_exempt
 @require_GET
 def graph_meta(request, organization_id, meta_id):
+    requested_format = request.GET.get('format', 'rdf').lower()
+
+    if requested_format not in ('rdf', 'json', 'xml', 'provn'):
+        return JsonResponse({"error": f"Requested format [{requested_format}] is not supported!"}, status=400)
+
     try:
         meta = controller.get_meta_provenance(organization_id, meta_id)
     except DoesNotExist:
-        return JsonResponse({"error": "Not good"}, status=404)
+        return JsonResponse({"error": f"Could not retrieve a meta-provenance with id [{meta_id}] "
+                                      f"under organization [{organization_id}]"}, status=404)
 
     # TODO -- obtain token from trusted party
-    t = ""
-    g = meta.serialize(format=request.GET.get('format', 'rdf'))
+    t = get_dummy_token()
+    g = meta.serialize(format=requested_format)
 
     return JsonResponse({"meta-prov": g, "token": t})
 
