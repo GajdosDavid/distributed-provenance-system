@@ -27,10 +27,10 @@ def import_graph(document: ProvDocument, json_data, token, graph_id, is_update=F
             update_meta_prov(graph_id, identifier, token, main_activity_id)
         else:
             try:
-                meta_bundle = Bundle.nodes.get(identifier=f"{organization_id}_{main_activity_id}")
+                meta_bundle = Bundle.nodes.get(identifier={main_activity_id})
             except DoesNotExist:
                 meta_bundle = Bundle()
-                meta_bundle.identifier = token['originatorId'] + '_' + main_activity_id
+                meta_bundle.identifier = main_activity_id
                 meta_bundle.save()
 
             store_into_meta_prov(meta_bundle, identifier, token)
@@ -90,7 +90,7 @@ def store_into_meta_prov(meta_bundle, new_entity_id, token):
 def update_meta_prov(graph_id, new_entity_id, token, main_activity_id):
     attributes = token
 
-    meta_bundle = Bundle.nodes.get(identifier=token['originatorId'] + '_' + main_activity_id)
+    meta_bundle = Bundle.nodes.get(identifier=main_activity_id)
     latest_entity = Entity.nodes.get(identifier=token['originatorId'] + '_' + graph_id)
     gen_entities = list(latest_entity.specialization_of.all())
     assert len(gen_entities) == 1, "Only one gen entity can be specified for version chain!"

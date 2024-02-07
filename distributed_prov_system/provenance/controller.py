@@ -31,8 +31,8 @@ def get_token(organization_id, graph_id):
     return {"data": token_data, "signature": t.attributes['signature']}
 
 
-def get_meta_provenance(organization_id, meta_id):
-    neo_bundle = Bundle.nodes.get(identifier=f"{organization_id}_{meta_id}")
+def get_meta_provenance(meta_id):
+    neo_bundle = Bundle.nodes.get(identifier=meta_id)
     meta_document = convert_to_prov(neo_bundle)
 
     return meta_document

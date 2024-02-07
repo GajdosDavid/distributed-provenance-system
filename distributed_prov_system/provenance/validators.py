@@ -48,9 +48,8 @@ def check_graph_id_belongs_to_meta(main_activity_id, graph_id, organization_id):
     meta_bundle = list(entity.contains.all())
     assert len(meta_bundle) == 1, "Entity cannot be part of more than one meta bundles"
 
-    if meta_bundle[0].identifier != f'{organization_id}_{main_activity_id}':
-        meta_id = meta_bundle[0].identifier.split('_', 1)
-        raise DocumentError(f"Graph with id={graph_id} is part of meta bundle with id={meta_id[0]},"
+    if meta_bundle[0].identifier != main_activity_id:
+        raise DocumentError(f"Graph with id={graph_id} is part of meta bundle with id={meta_bundle[0].identifier},"
                             f" however main_activity from given bundle is resolvable to different id={main_activity_id}")
 
 

@@ -5,6 +5,7 @@ from neomodel.exceptions import DoesNotExist
 
 from prov2neomodel.prov2neomodel import import_graph
 import json
+import copy
 
 from .validators import (InputGraphChecker, send_signature_verification_request, graph_exists, check_graph_id_belongs_to_meta,
                          IncorrectPIDs, HasNoBundles, TooManyBundles, DocumentError)
@@ -32,7 +33,6 @@ def graph(request, organization_id, graph_id):
     if request.method == 'POST':
         return store_graph(request, organization_id, graph_id)
     elif request.method == "PUT":
-        # TODO -- check that graph_id exists and is from the same meta-prov
         return store_graph(request, organization_id, graph_id, is_update=True)
     else:
         return graphs_get(request, organization_id, graph_id)
@@ -56,6 +56,9 @@ def store_graph(request, organization_id, graph_id, is_update=False):
                                               f" you have given is correct."}, status=404)
         else:
             validator.check_ids_match(graph_id)
+    except DoesNotExist:
+        return JsonResponse({"error": f"The graph with id [{graph_id}] does not "
+                                      f"exist under organization [{organization_id}]"}, status=400)
     except DocumentError as e:
         return JsonResponse({"error": str(e)}, status=400)
 
@@ -80,7 +83,7 @@ def store_graph(request, organization_id, graph_id, is_update=False):
     token = get_dummy_token()
 
     document = validator.get_document()
-    import_graph(document, json_data, token.copy(),graph_id, is_update)
+    import_graph(document, json_data, copy.deepcopy(token), graph_id, is_update)
 
     return JsonResponse({"token": token}, status=200)
 
@@ -98,17 +101,16 @@ def graphs_get(request, organization_id, graph_id):
 
 @csrf_exempt
 @require_GET
-def graph_meta(request, organization_id, meta_id):
+def graph_meta(request, meta_id):
     requested_format = request.GET.get('format', 'rdf').lower()
 
     if requested_format not in ('rdf', 'json', 'xml', 'provn'):
         return JsonResponse({"error": f"Requested format [{requested_format}] is not supported!"}, status=400)
 
     try:
-        meta = controller.get_meta_provenance(organization_id, meta_id)
+        meta = controller.get_meta_provenance(meta_id)
     except DoesNotExist:
-        return JsonResponse({"error": f"Could not retrieve a meta-provenance with id [{meta_id}] "
-                                      f"under organization [{organization_id}]"}, status=404)
+        return JsonResponse({"error": f"The meta-provenance with id [{meta_id}] does not exist"}, status=404)
 
     # TODO -- obtain token from trusted party
     t = get_dummy_token()
