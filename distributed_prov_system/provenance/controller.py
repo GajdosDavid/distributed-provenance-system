@@ -23,11 +23,10 @@ def query_db_for_subgraph(organization_id, graph_id, requested_format, is_domain
     t = {
         "data": {
             "originatorId": token.originator_id,
-            # TODO -- uncommenct once TP is up and running
-            # "authorityId": token.authority_id,
-            # "tokenTimestamp": token.token_timestamp,
-            # "messageTimestamp": token.message_timestamp,
-            # "graphImprint": token.hash
+            "authorityId": token.authority_id,
+            "tokenTimestamp": token.token_timestamp,
+            "messageTimestamp": token.message_timestamp,
+            "graphImprint": token.hash
         },
         "signature": token.signature
     }
@@ -41,14 +40,13 @@ def store_subgraph_into_db(document_id, format, graph, token):
     d.format = format
     d.graph = graph
 
-    # TODO -- uncomment once TP is up and running
     t = Token()
     t.signature = token['signature']
-    # t.hash = token['data']['graphImprint']
+    t.hash = token['data']['graphImprint']
     t.originator_id = token['data']['originatorId']
-    # t.authority_id = token['data']['authorityId']
-    # t.token_timestamp = token['data']['tokenTimestamp']
-    # t.message_timestamp = token['data']['messageTimestamp']
+    t.authority_id = token['data']['authorityId']
+    t.token_timestamp = token['data']['tokenTimestamp']
+    t.message_timestamp = token['data']['messageTimestamp']
 
     t.save()
     d.save()

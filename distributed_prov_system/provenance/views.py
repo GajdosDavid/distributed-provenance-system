@@ -24,7 +24,15 @@ def send_token_request_to_TP(payload):
 
 
 def get_dummy_token():
-    return {"data": {"originatorId": "jaJsemBuh"}, "signature": "abcdefu"}
+    return {"data": {
+                "originatorId": "iAmOriginator",
+                "authorityId": "iAmAuthority",
+                "tokenTimestamp": 123,
+                "messageTimestamp": 123,
+                "graphImprint": "17fd7484d7cac628cfa43c348fe05a009a81d18c8a778e6488b707954addf2a3"
+            },
+            "signature": "bdysXEy2/sOSTN+Lh+v3x7cTdocMcndwuW5OT2wHpQOU/LM4os9Bow0sn4HTln9hRqFdCMukV6Cr6Nn8XvD96jlgEw9KqJj9I+cfBL81x9iqUJX/Wder3lkuIZXYUSeGsOOqUPdlqJAhapgr0V+vibAvPGoiRKqulNi/Xn0jn21lln1HEbHPsnOtM5Ca5wwXuTITJsiXCj+04y9V/XM9Uy9Ib4LLA1VYLCdifjg0ZuxJBcpS/HszlwW9B29rrkUGUsSrV9YU0ViYkeIMcS2bMXsur3EHi3/zSZ5IepUNOBDTu3BDUr33dbrgMOVraI8RU5DTZKmUOx8hzgtApZNotg=="
+    }
 
 
 @csrf_exempt
