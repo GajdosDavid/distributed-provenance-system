@@ -1,4 +1,4 @@
-from neomodel import (StructuredRel, StructuredNode, StringProperty,
+from neomodel import (StructuredRel, StructuredNode, StringProperty, DateTimeProperty,
                       JSONProperty, DateTimeFormatProperty, RelationshipTo, RelationshipFrom)
 
 
@@ -137,3 +137,18 @@ class Document(StructuredNode):
     identifier = StringProperty()
     signature = StringProperty()
     graph = StringProperty()
+    format = StringProperty()
+
+    belongs_to = RelationshipFrom('Token', 'belongs_to')
+
+
+class Token(StructuredNode):
+    signature = StringProperty()
+    hash = StringProperty()
+    originator_id = StringProperty()
+    authority_id = StringProperty()
+    token_timestamp = DateTimeProperty()
+    message_timestamp = DateTimeProperty()
+    additional_info = JSONProperty()
+
+    belongs_to = RelationshipTo('Document', 'belongs_to')

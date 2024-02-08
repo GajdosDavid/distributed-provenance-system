@@ -35,7 +35,7 @@ def graph(request, organization_id, graph_id):
     elif request.method == "PUT":
         return store_graph(request, organization_id, graph_id, is_update=True)
     else:
-        return graphs_get(request, organization_id, graph_id)
+        return get_graph(request, organization_id, graph_id)
 
 
 def store_graph(request, organization_id, graph_id, is_update=False):
@@ -57,8 +57,8 @@ def store_graph(request, organization_id, graph_id, is_update=False):
         else:
             validator.check_ids_match(graph_id)
     except DoesNotExist:
-        return JsonResponse({"error": f"The graph with id [{graph_id}] does not "
-                                      f"exist under organization [{organization_id}]"}, status=400)
+        return JsonResponse({"error": f"Graph with id [{graph_id}] does not "
+                                      f"exist under organization [{organization_id}]"}, status=404)
     except DocumentError as e:
         return JsonResponse({"error": str(e)}, status=400)
 
@@ -88,13 +88,13 @@ def store_graph(request, organization_id, graph_id, is_update=False):
     return JsonResponse({"token": token}, status=200)
 
 
-def graphs_get(request, organization_id, graph_id):
+def get_graph(request, organization_id, graph_id):
     try:
         g = controller.get_provenance(organization_id, graph_id)
         t = controller.get_token(organization_id, graph_id)
     except DoesNotExist:
-        return JsonResponse({"error": f"Could not retrieve a resource with id [{graph_id}] "
-                                      f"under organization [{organization_id}]"}, status=404)
+        return JsonResponse({"error": f"Graph with id [{graph_id}] does not "
+                                      f"exist under organization [{organization_id}]"}, status=404)
 
     return JsonResponse({"graph": g, "token": t})
 
@@ -122,21 +122,42 @@ def graph_meta(request, meta_id):
 @csrf_exempt
 @require_GET
 def graph_domain_specific(request, organization_id, graph_id):
-    try:
-        g = controller.get_subgraph(organization_id, graph_id, format=request.GET.get('format', 'rdf'))
-    except DoesNotExist:
-        return JsonResponse({"error": "Not good"}, status=404)
+    requested_format = request.GET.get('format', 'rdf')
 
-    # TODO -- obtain token from trusted party
-    t = ""
+    if requested_format not in ('rdf', 'json', 'xml', 'provn'):
+        return JsonResponse({"error": f"Requested format [{requested_format}] is not supported!"}, status=400)
+
+    found_in_db = False
+    try:
+        g, t = controller.query_db_for_subgraph(organization_id, graph_id, requested_format)
+        found_in_db = True
+    except DoesNotExist:
+        try:
+            g = controller.get_b64_encoded_subgraph(organization_id, graph_id, format=requested_format)
+
+            # TODO -- uncomment once TP is up and running
+            # t = send_token_request_to_TP({"graph": g})
+            t = get_dummy_token()
+        except DoesNotExist:
+            return JsonResponse({"error": f"Graph with id [{graph_id}] does not "
+                                          f"exist under organization [{organization_id}]"}, status=404)
+
+    if not found_in_db:
+        controller.store_subgraph_into_db(f"{organization_id}_{graph_id}_domain", requested_format, g, t)
+
     return JsonResponse({"graph": g, "token": t})
 
 
 @csrf_exempt
 @require_GET
 def graph_backbone(request, organization_id, graph_id):
+    requested_format = request.GET.get('format', 'rdf')
+
+    if requested_format not in ('rdf', 'json', 'xml', 'provn'):
+        return JsonResponse({"error": f"Requested format [{requested_format}] is not supported!"}, status=400)
+
     try:
-        g = controller.get_subgraph(organization_id, graph_id, is_domain_specific=False, format=request.GET.get('format', 'rdf'))
+        g = controller.get_b64_encoded_subgraph(organization_id, graph_id, is_domain_specific=False, format=requested_format)
     except DoesNotExist:
         return JsonResponse({"error": "Not good"}, status=404)
 
