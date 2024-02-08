@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from prov.model import ProvDocument, ProvElement, ProvRelation, ProvActivity
 from .mappers import prov2neo_mappers
-from provenance.models import Bundle, Entity, Document
+from provenance.models import Bundle, Entity, Document, Activity
 from neomodel.exceptions import DoesNotExist
 
 
@@ -36,36 +36,6 @@ def import_graph(document: ProvDocument, json_data, token, graph_id, is_update=F
             store_into_meta_prov(meta_bundle, identifier, token)
 
 
-# leaving this here if some time in future it'd be necessary to split document into individual nodes
-def __import_graph__(document: ProvDocument, json_data):
-    assert document.has_bundles(), 'No bundles inside the document!'
-
-    for bundle in document.bundles:
-        models = {}
-
-        neo_bundle = Bundle()
-        neo_bundle.identifier = str(bundle.identifier) + '_v1'
-        neo_bundle.graph = json_data['graph']['data']
-        neo_bundle.signature = json_data['signature']
-        neo_bundle.timestamp = datetime.fromtimestamp(json_data['timestamp'])
-        neo_bundle.save()
-
-        # create_and_import_meta_provenance(str(bundle.identifier), json_data)
-
-        for prov_elem in bundle.get_records(ProvElement):
-            import_element(neo_bundle, prov_elem, models)
-
-        for prov_relation in bundle.get_records(ProvRelation):
-            import_relation(neo_bundle, prov_relation, models)
-
-        # TODO -- do this only within a scope of bundle to avoid doing it for all nodes
-        # query = ("MATCH (node) "
-        #          "WHERE node.attributes IS NOT NULL "
-        #          "SET node += apoc.convert.fromJsonMap(node.attributes) "
-        #          "REMOVE node.attributes")
-        # results, meta = db.cypher_query(query, None, resolve_objects=True)
-
-
 def store_into_meta_prov(meta_bundle, new_entity_id, token):
     gen_entity = Entity()
     gen_entity.identifier = new_entity_id + '_gen'
@@ -73,12 +43,9 @@ def store_into_meta_prov(meta_bundle, new_entity_id, token):
         'prov:type': 'prov:bundle'
     }
 
-    # attributes = token
-    attributes = dict()
-    attributes.update({'prov:type': 'prov:bundle', 'pav:version': 1})
     first_version = Entity()
     first_version.identifier = new_entity_id
-    first_version.attributes = attributes
+    first_version.attributes = {'prov:type': 'prov:bundle', 'pav:version': 1}
 
     first_version.save()
     gen_entity.save()
@@ -87,11 +54,10 @@ def store_into_meta_prov(meta_bundle, new_entity_id, token):
     meta_bundle.contains.connect(first_version)
     first_version.specialization_of.connect(gen_entity)
 
+    store_token(meta_bundle, first_version, token)
+
 
 def update_meta_prov(graph_id, new_entity_id, token, main_activity_id):
-    # attributes = token
-    attributes = dict()
-
     meta_bundle = Bundle.nodes.get(identifier=main_activity_id)
     latest_entity = Entity.nodes.get(identifier=token['originatorId'] + '_' + graph_id)
     gen_entities = list(latest_entity.specialization_of.all())
@@ -99,17 +65,43 @@ def update_meta_prov(graph_id, new_entity_id, token, main_activity_id):
     gen_entity = gen_entities[0]
 
     latest_version = latest_entity.attributes['pav:version']
-    attributes.update({'prov:type': 'prov:bundle', 'pav:version': latest_version + 1})
 
     new_version = Entity()
     new_version.identifier = new_entity_id
-    new_version.attributes = attributes
+    new_version.attributes = {'prov:type': 'prov:bundle', 'pav:version': latest_version + 1}
 
     new_version.save()
 
     meta_bundle.contains.connect(new_version)
     new_version.specialization_of.connect(gen_entity)
     new_version.was_derived_from.connect(latest_entity, {'attributes': {'prov:type': 'prov:Revision'}})
+
+    store_token(meta_bundle, new_version, token)
+
+
+def store_token(meta_bundle, entity, token):
+    token_attributes = dict()
+    for key, value in token.items():
+        token_attributes[f"cpm:{key}"] = value
+    token_attributes["prov:type"] = "cpm:token"
+
+    e = Entity()
+    e.identifier = f"{entity.identifier}_token"
+    e.attributes = token_attributes
+
+    a = Activity()
+    a.identifier = uuid.uuid4()
+    a.start_time = datetime.fromtimestamp(token['tokenTimestamp'])
+    a.end_time = a.start_time
+    a.attributes = {"prov:type": 'cpm:signing'}
+
+    a.save()
+    e.save()
+
+    meta_bundle.contains.connect(e)
+    meta_bundle.contains.connect(a)
+    a.used.connect(entity)
+    e.was_generated_by.connect(a)
 
 
 def get_main_activity_id(bundle):
@@ -121,17 +113,47 @@ def get_main_activity_id(bundle):
     return None
 
 
-def import_element(bundle, elem, models: dict):
-    mapper_class = prov2neo_mappers.get(type(elem))
-    mapper = mapper_class(bundle, elem)
-    mapper.save()
-
-    model = mapper.get_neomodel()
-    assert model.identifier not in models
-    models[model.identifier] = model
-
-
-def import_relation(bundle, relation, models: dict):
-    mapper_class = prov2neo_mappers.get(type(relation))
-    mapper = mapper_class(bundle, relation, models)
-    mapper.save()
+# leaving this here if some time in future it'd be necessary to split document into individual nodes
+# def __import_graph__(document: ProvDocument, json_data):
+#     assert document.has_bundles(), 'No bundles inside the document!'
+#
+#     for bundle in document.bundles:
+#         models = {}
+#
+#         neo_bundle = Bundle()
+#         neo_bundle.identifier = str(bundle.identifier) + '_v1'
+#         neo_bundle.graph = json_data['graph']['data']
+#         neo_bundle.signature = json_data['signature']
+#         neo_bundle.timestamp = datetime.fromtimestamp(json_data['timestamp'])
+#         neo_bundle.save()
+#
+#         # create_and_import_meta_provenance(str(bundle.identifier), json_data)
+#
+#         for prov_elem in bundle.get_records(ProvElement):
+#             import_element(neo_bundle, prov_elem, models)
+#
+#         for prov_relation in bundle.get_records(ProvRelation):
+#             import_relation(neo_bundle, prov_relation, models)
+#
+#         # TODO -- do this only within a scope of bundle to avoid doing it for all nodes
+#         # query = ("MATCH (node) "
+#         #          "WHERE node.attributes IS NOT NULL "
+#         #          "SET node += apoc.convert.fromJsonMap(node.attributes) "
+#         #          "REMOVE node.attributes")
+#         # results, meta = db.cypher_query(query, None, resolve_objects=True)
+#
+#
+# def import_element(bundle, elem, models: dict):
+#     mapper_class = prov2neo_mappers.get(type(elem))
+#     mapper = mapper_class(bundle, elem)
+#     mapper.save()
+#
+#     model = mapper.get_neomodel()
+#     assert model.identifier not in models
+#     models[model.identifier] = model
+#
+#
+# def import_relation(bundle, relation, models: dict):
+#     mapper_class = prov2neo_mappers.get(type(relation))
+#     mapper = mapper_class(bundle, relation, models)
+#     mapper.save()

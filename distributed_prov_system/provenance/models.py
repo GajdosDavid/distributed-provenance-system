@@ -61,8 +61,6 @@ class BaseFakeProvClass(StructuredNode):
     # avoids giving a tag 'BaseFakeProvClass' in neo4j
     __abstract_node__ = True
 
-    # bundled_in = RelationshipTo('Bundle', 'bundled_in')
-
 
 class FakeActivity(BaseFakeProvClass):
     pass
@@ -79,12 +77,13 @@ class FakeEntity(BaseFakeProvClass):
 ### Classes for main PROV-DM types ###
 class BaseProvClass(StructuredNode):
     # avoids giving a tag 'BaseProvClass' in neo4j
-    __abstract_node__ = True
+    # !! if uncommented, cannot target BaseProvClass relations in queries
+    # __abstract_node__ = True
 
     identifier = StringProperty(required=True)
     attributes = JSONProperty()
 
-    # bundled_in = RelationshipTo('Bundle', 'bundled_in')
+    contains = RelationshipFrom('Bundle', 'contains')
     was_influenced_by = RelationshipTo('BaseProvClass', 'was_influenced_by', model=WasInfluencedBy)
 
 
@@ -101,8 +100,6 @@ class Entity(BaseProvClass):
     specialization_of = RelationshipTo('Entity', 'specialization_of')
     alternate_of = RelationshipTo('Entity', 'alternate_of')
     had_member = RelationshipTo('Entity', 'had_member')
-
-    contains = RelationshipFrom('Bundle', 'contains')
 
 
 class Activity(BaseProvClass):
@@ -129,7 +126,7 @@ class Agent(BaseProvClass):
 
 
 class Bundle(BaseProvClass):
-    contains = RelationshipTo('Entity', 'contains')
+    contains = RelationshipTo('BaseProvClass', 'contains')
     pass
 
 
