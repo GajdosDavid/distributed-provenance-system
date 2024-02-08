@@ -12,8 +12,10 @@ def get_provenance(organization_id, graph_id):
     return d.graph
 
 
-def query_db_for_subgraph(organization_id, graph_id, requested_format):
-    d = Document.nodes.get(identifier=f"{organization_id}_{graph_id}_domain", format=requested_format)
+def query_db_for_subgraph(organization_id, graph_id, requested_format, is_domain_specific):
+    suffix = "domain" if is_domain_specific else "backbone"
+
+    d = Document.nodes.get(identifier=f"{organization_id}_{graph_id}_{suffix}", format=requested_format)
     tokens = list(d.belongs_to.all())
 
     assert len(tokens) == 1, "Only one token expected per document!"

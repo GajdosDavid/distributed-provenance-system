@@ -122,6 +122,16 @@ def graph_meta(request, meta_id):
 @csrf_exempt
 @require_GET
 def graph_domain_specific(request, organization_id, graph_id):
+    return get_subgraph(request, organization_id, graph_id, True)
+
+
+@csrf_exempt
+@require_GET
+def graph_backbone(request, organization_id, graph_id):
+    return get_subgraph(request, organization_id, graph_id, False)
+
+
+def get_subgraph(request, organization_id, graph_id, is_domain_specific):
     requested_format = request.GET.get('format', 'rdf')
 
     if requested_format not in ('rdf', 'json', 'xml', 'provn'):
@@ -129,11 +139,11 @@ def graph_domain_specific(request, organization_id, graph_id):
 
     found_in_db = False
     try:
-        g, t = controller.query_db_for_subgraph(organization_id, graph_id, requested_format)
+        g, t = controller.query_db_for_subgraph(organization_id, graph_id, requested_format, is_domain_specific)
         found_in_db = True
     except DoesNotExist:
         try:
-            g = controller.get_b64_encoded_subgraph(organization_id, graph_id, format=requested_format)
+            g = controller.get_b64_encoded_subgraph(organization_id, graph_id, is_domain_specific, requested_format)
 
             # TODO -- uncomment once TP is up and running
             # t = send_token_request_to_TP({"graph": g})
@@ -143,24 +153,7 @@ def graph_domain_specific(request, organization_id, graph_id):
                                           f"exist under organization [{organization_id}]"}, status=404)
 
     if not found_in_db:
-        controller.store_subgraph_into_db(f"{organization_id}_{graph_id}_domain", requested_format, g, t)
+        suffix = "domain" if is_domain_specific else "backbone"
+        controller.store_subgraph_into_db(f"{organization_id}_{graph_id}_{suffix}", requested_format, g, t)
 
-    return JsonResponse({"graph": g, "token": t})
-
-
-@csrf_exempt
-@require_GET
-def graph_backbone(request, organization_id, graph_id):
-    requested_format = request.GET.get('format', 'rdf')
-
-    if requested_format not in ('rdf', 'json', 'xml', 'provn'):
-        return JsonResponse({"error": f"Requested format [{requested_format}] is not supported!"}, status=400)
-
-    try:
-        g = controller.get_b64_encoded_subgraph(organization_id, graph_id, is_domain_specific=False, format=requested_format)
-    except DoesNotExist:
-        return JsonResponse({"error": "Not good"}, status=404)
-
-    # TODO -- obtain token from trusted party
-    t = ""
     return JsonResponse({"graph": g, "token": t})
