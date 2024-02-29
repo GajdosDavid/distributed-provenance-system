@@ -99,8 +99,8 @@ class InputGraphChecker:
             raise DocumentError(f'The bundle id={self._prov_bundle.identifier.localpart} does not match the '
                                 f'specified id={graph_id} from query.')
 
-    def validate_graph(self, graph_id):
-        assert self._prov_document is not None and self._prov_bundle is not None, 'Parse the graph first!s'
+    def validate_graph(self):
+        assert self._prov_document is not None and self._prov_bundle is not None, 'Parse the graph first!'
 
         if not self._prov_document.has_bundles():
             raise HasNoBundles('There are no bundles inside the document!')
@@ -131,6 +131,7 @@ class InputGraphChecker:
                 return False, f'BackwardConnector with id={connector.identifier.localpart} has incorrectly resolvable PID'
 
         # Check for resolvability of MainActivity cannot be done as one meta-prov can contain multiple version chains
+        # plus it might not exist yet if it's the first chain in meta-prov
         # if not self._is_pid_resolvable(main_activity):
         #     return False, f'MainActivity with id={main_activity.identifier.localpar} has incorrectly resolvable PID'
 

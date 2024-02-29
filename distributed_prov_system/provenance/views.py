@@ -55,8 +55,8 @@ def store_graph(request, organization_id, graph_id, is_update=False):
             return JsonResponse({"error": f"Mandatory field '{field}' not present in request!"}, status=400)
 
     validator = InputGraphChecker(json_data['graph'])
-    validator.parse_graph()
     try:
+        validator.parse_graph()
         if is_update:
             check_graph_id_belongs_to_meta(validator.get_main_activity_id(), graph_id, organization_id)
             if not graph_exists(organization_id, graph_id):
@@ -81,10 +81,9 @@ def store_graph(request, organization_id, graph_id, is_update=False):
     #                                   " Make sure to register your certificate with trusted party first."}, status=401)
 
     try:
-        validator.validate_graph(graph_id)
+        validator.validate_graph()
     except (IncorrectPIDs, HasNoBundles, TooManyBundles, DocumentError) as e:
-        error_msg = str(e)
-        return JsonResponse({"error": error_msg}, status=400)
+        return JsonResponse({"error": str(e)}, status=400)
 
     # TODO -- uncomment once TP is implemented and running
     # token = send_token_request_to_TP(json_data)
