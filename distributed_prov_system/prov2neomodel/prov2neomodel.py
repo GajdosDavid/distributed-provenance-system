@@ -2,8 +2,9 @@ import uuid
 from datetime import datetime
 from prov.model import ProvDocument, ProvElement, ProvRelation, ProvActivity
 from .mappers import prov2neo_mappers
-from provenance.models import Bundle, Entity, Document, Activity
+from provenance.models import Bundle, Entity, Document, Activity, Agent
 from neomodel.exceptions import DoesNotExist
+from neomodel.match import Traversal, OUTGOING
 
 
 def import_graph(document: ProvDocument, json_data, token, graph_id, is_update=False):
@@ -27,7 +28,7 @@ def import_graph(document: ProvDocument, json_data, token, graph_id, is_update=F
             update_meta_prov(graph_id, identifier, token, main_activity_id)
         else:
             try:
-                meta_bundle = Bundle.nodes.get(identifier={main_activity_id})
+                meta_bundle = Bundle.nodes.get(identifier=main_activity_id)
             except DoesNotExist:
                 meta_bundle = Bundle()
                 meta_bundle.identifier = main_activity_id
@@ -89,19 +90,45 @@ def store_token(meta_bundle, entity, token):
     e.identifier = f"{entity.identifier}_token"
     e.attributes = token_attributes
 
-    a = Activity()
-    a.identifier = uuid.uuid4()
-    a.start_time = datetime.fromtimestamp(token['tokenTimestamp'])
-    a.end_time = a.start_time
-    a.attributes = {"prov:type": 'cpm:signing'}
+    agent = get_TP_agent(meta_bundle, token['authorityId'])
 
-    a.save()
+    activity = Activity()
+    activity.identifier = f"{entity.identifier}_signing"
+    activity.start_time = datetime.fromtimestamp(token['tokenTimestamp'])
+    activity.end_time = activity.start_time
+    activity.attributes = {"prov:type": 'cpm:signing'}
+
+    activity.save()
     e.save()
 
     meta_bundle.contains.connect(e)
-    meta_bundle.contains.connect(a)
-    a.used.connect(entity)
-    e.was_generated_by.connect(a)
+    meta_bundle.contains.connect(activity)
+    activity.used.connect(entity)
+    activity.was_associated_with.connect(agent)
+    e.was_generated_by.connect(activity)
+    e.was_attributed_to.connect(agent)
+
+
+def get_TP_agent(meta_bundle, authority_id):
+    definition = dict(node_class=Agent, direction=OUTGOING,
+                      relation_type="contains", model=None)
+    traversal = Traversal(meta_bundle, Agent.__label__, definition)
+    agent = None
+
+    for a in traversal.all():
+        if a.identifier == authority_id:
+            agent = a
+            break
+
+    if agent is None:
+        agent = Agent()
+        agent.identifier = authority_id
+        agent.attributes = {"prov:type": 'cpm:trustedParty'}
+
+        agent.save()
+        meta_bundle.contains.connect(agent)
+
+    return agent
 
 
 def get_main_activity_id(bundle):
