@@ -24,6 +24,13 @@ class DocumentError(Exception):
     pass
 
 
+def is_org_registered_at_TP(organization_id) -> bool:
+    # resp = requests.get(f'http://{config.tp_fqdn}/organizations/{organization_id}')
+
+    # TODO -- change once TP is up and running
+    # return resp.ok
+
+    return True
 def is_org_registered(organization_id) -> bool:
     try:
         # check if organization already exists

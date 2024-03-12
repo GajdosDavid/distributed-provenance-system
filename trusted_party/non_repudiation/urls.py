@@ -3,7 +3,9 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
+    path("info", views.info, name="information"),
     path("organizations", views.organizations, name="organizations"),
+    path("organizations/<org_id>", views.retrieve_organization, name="retrieval_of_organization"),
     path("organizations/<org_id>/certs", views.certs, name="certificates"),
     path("organizations/<org_id>/certs/<cert_id>", views.specific_cert, name="specific_certificate"),
     path("ownCertificates", views.own_certs, name="own_certificates"),

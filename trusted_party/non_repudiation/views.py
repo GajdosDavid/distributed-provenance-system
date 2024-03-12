@@ -5,6 +5,12 @@ from django.views.decorators.http import require_http_methods, require_GET
 
 @csrf_exempt
 @require_GET
+def info(request):
+    pass
+
+
+@csrf_exempt
+@require_GET
 def organizations(request):
     retrieve_organizations(request)
 
@@ -12,6 +18,12 @@ def organizations(request):
 
 
 def retrieve_organizations(request):
+    pass
+
+
+@csrf_exempt
+@require_GET
+def retrieve_organization(request, org_id):
     pass
 
 

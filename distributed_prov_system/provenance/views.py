@@ -11,7 +11,8 @@ from neomodel.exceptions import DoesNotExist
 from prov2neomodel.prov2neomodel import import_graph
 
 from .validators import (InputGraphChecker, graph_exists, check_graph_id_belongs_to_meta,
-                         IncorrectPIDs, HasNoBundles, TooManyBundles, DocumentError, is_org_registered)
+                         IncorrectPIDs, HasNoBundles, TooManyBundles, DocumentError, is_org_registered,
+                         is_org_registered_at_TP)
 
 
 def send_token_request_to_TP(payload, tp_url=None):
@@ -60,7 +61,7 @@ def register(request, organization_id):
 
 
 def register_org(request, organization_id):
-    if is_org_registered:
+    if is_org_registered(organization_id):
         return JsonResponse({"error": f"Organization with id [{organization_id}] is already registered. "
                                       f"If you want to modify it, send PUT request!"}, status=404)
 
@@ -81,7 +82,7 @@ def register_org(request, organization_id):
 
 
 def modify_org(request, organization_id):
-    if not is_org_registered:
+    if not is_org_registered(organization_id):
         return JsonResponse({"error": f"Organization with id [{organization_id}] is not registered!"}, status=404)
 
     json_data = json.loads(request.body)
@@ -112,13 +113,11 @@ def graph(request, organization_id, graph_id):
 
 
 def store_graph(request, organization_id, graph_id, is_update=False):
-    # TODO -- if organization is allowed to register directly at TP, send a req to TP to find out if registered
-    if not is_org_registered:
+    if not is_org_registered(organization_id) and not is_org_registered_at_TP(organization_id):
         return JsonResponse({"error": f"Organization with id [{organization_id}] is not registered! "
                                       f"Please register your organization first."}, status=404)
 
     json_data = json.loads(request.body)
-
     expected_json_fields = ('graph', 'signature')
     for field in expected_json_fields:
         if field not in json_data:
