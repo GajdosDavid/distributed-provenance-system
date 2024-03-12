@@ -156,7 +156,8 @@ def store_graph(request, organization_id, graph_id, is_update=False):
         return JsonResponse({"error": str(e)}, status=400)
 
     # TODO -- uncomment once TP is implemented and running
-    # token = send_token_request_to_TP(json_data)
+    # tp_url = get_TP_url_by_organization(organization_id)
+    # token = send_token_request_to_TP(json_data, tp_url)
     token = get_dummy_token()
 
     document = validator.get_document()
@@ -181,6 +182,7 @@ def get_graph(request, organization_id, graph_id):
 @require_GET
 def graph_meta(request, meta_id):
     requested_format = request.GET.get('format', 'rdf').lower()
+    organization_id = request.GET.get('organizationId', None)
 
     if requested_format not in ('rdf', 'json', 'xml', 'provn'):
         return JsonResponse({"error": f"Requested format [{requested_format}] is not supported!"}, status=400)
@@ -191,7 +193,11 @@ def graph_meta(request, meta_id):
         return JsonResponse({"error": f"The meta-provenance with id [{meta_id}] does not exist"}, status=404)
 
     # TODO -- uncomment once TP is up and running
-    # t = send_token_request_to_TP({"graph": g})
+    # if organization_id is not None:
+    #     tp_url = controller.get_TP_url_by_organization(organization_id)
+    # else:
+    #     tp_url = None
+    # t = send_token_request_to_TP({"graph": g}, tp_url)
     t = get_dummy_token()
 
     return JsonResponse({"graph": g, "token": t})
@@ -224,7 +230,8 @@ def get_subgraph(request, organization_id, graph_id, is_domain_specific):
             g = controller.get_b64_encoded_subgraph(organization_id, graph_id, is_domain_specific, requested_format)
 
             # TODO -- uncomment once TP is up and running
-            # t = send_token_request_to_TP({"graph": g})
+            # tp_url = get_TP_url_by_organization(organization_id)
+            # t = send_token_request_to_TP({"graph": g}, tp_url)
             t = get_dummy_token()
         except DoesNotExist:
             return JsonResponse({"error": f"Graph with id [{graph_id}] does not "

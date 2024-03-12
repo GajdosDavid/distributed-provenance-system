@@ -171,3 +171,13 @@ def get_TP(url):
         tp.save()
 
     return tp
+
+
+def get_TP_url_by_organization(organization_id):
+    try:
+        org = Organization.nodes.get(identifier=organization_id)
+
+        trusted_parties = list(org.trusts.all())
+        return trusted_parties[0].url
+    except DoesNotExist:
+        return None

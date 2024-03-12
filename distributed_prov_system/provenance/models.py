@@ -101,6 +101,8 @@ class Entity(BaseProvClass):
     alternate_of = RelationshipTo('Entity', 'alternate_of')
     had_member = RelationshipTo('Entity', 'had_member')
 
+    used = RelationshipFrom('Activity', 'used', model=Used)
+
 
 class Activity(BaseProvClass):
     start_time = DateTimeFormatProperty(format='%Y-%m-%dT%H:%M:%S')
@@ -119,6 +121,8 @@ class Activity(BaseProvClass):
 
     was_ended_by = RelationshipTo('Entity', 'was_ended_by', model=WasEndedBy)
     was_ended_by_fake = RelationshipTo('FakeEntity', 'was_ended_by', model=WasEndedBy)
+
+    was_generated_by = RelationshipFrom('Entity', 'was_generated_by', model=WasGeneratedBy)
 
 
 class Agent(BaseProvClass):
@@ -144,8 +148,8 @@ class Token(StructuredNode):
     hash = StringProperty()
     originator_id = StringProperty()
     authority_id = StringProperty()
-    token_timestamp = DateTimeProperty()
-    message_timestamp = DateTimeProperty()
+    token_timestamp = DateTimeFormatProperty(format='%Y-%m-%dT%H:%M:%S')
+    message_timestamp = DateTimeFormatProperty(format='%Y-%m-%dT%H:%M:%S')
     additional_info = JSONProperty()
 
     belongs_to = RelationshipTo('Document', 'belongs_to')
