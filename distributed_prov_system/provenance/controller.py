@@ -1,9 +1,12 @@
 import base64
+import json
 
-from .models import Document, Entity, Bundle, Token
+from .models import Document, Entity, Bundle, Token, Organization, TrustedParty, DefaultTrustedParty
 from prov2neomodel.neomodel2prov import convert_to_prov
 from prov.model import ProvDocument, ProvBundle
 from base64 import b64decode, b64encode
+from neomodel.exceptions import DoesNotExist
+import requests
 
 
 def get_provenance(organization_id, graph_id):
@@ -107,3 +110,51 @@ def retrieve_subgraph(graph, is_domain_specific=True):
     new_doc.add_bundle(new_bundle)
 
     return new_doc
+
+
+def store_organization(organization_id, client_cert, intermediate_certs, tp_uri=None):
+    org = Organization()
+    org.identifier = organization_id
+    org.client_cert = client_cert
+    org.intermediate_certs = intermediate_certs
+
+    org.save()
+    tp = get_TP(tp_uri)
+
+    org.trusts.connect(tp)
+
+
+def modify_organization(organization_id, client_cert, intermediate_certs, tp_uri=None):
+    org = Organization.nodes.get(identifier=organization_id)
+    org.identifier = organization_id
+    org.client_cert = client_cert
+    org.intermediate_certs = intermediate_certs
+
+    org.save()
+    tp = get_TP(tp_uri)
+
+    org.trusts.connect(tp)
+
+
+def get_TP(url):
+    if url is None:
+        tp = list(DefaultTrustedParty.nodes.all())
+        assert len(tp) == 1
+
+        return tp
+
+    resp = requests.get(f'http://{url}/info')
+
+    assert resp.ok, "Couldn't retrieve info from TP!"
+    info = json.loads(resp.content)
+
+    try:
+        tp = TrustedParty.nodes.get(identifier=info['id'])
+    except DoesNotExist:
+        tp = TrustedParty()
+        tp.identifier = info['id']
+        tp.url = url
+        tp.certificate = info['certificate']
+        tp.save()
+
+    return tp

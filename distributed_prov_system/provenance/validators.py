@@ -3,7 +3,7 @@ from neomodel.match import Traversal, INCOMING
 import base64
 import requests
 
-from .models import Document, Bundle, Entity
+from .models import Document, Organization, Entity
 from neomodel.exceptions import DoesNotExist
 from distributed_prov_system.settings import config
 
@@ -22,6 +22,16 @@ class IncorrectPIDs(Exception):
 
 class DocumentError(Exception):
     pass
+
+
+def is_org_registered(organization_id) -> bool:
+    try:
+        # check if organization already exists
+        Organization.nodes.get(identifier=organization_id)
+
+        return True
+    except DoesNotExist:
+        return False
 
 
 def graph_exists(organization_id, graph_id) -> bool:

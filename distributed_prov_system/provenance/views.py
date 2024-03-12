@@ -1,26 +1,41 @@
-from django.http import JsonResponse
+import copy
+import json
+import requests
+
+import provenance.controller as controller
+from distributed_prov_system.settings import config
+from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods, require_GET
 from neomodel.exceptions import DoesNotExist
-
 from prov2neomodel.prov2neomodel import import_graph
-import json
-import copy
 
-from .validators import (InputGraphChecker, send_signature_verification_request, graph_exists, check_graph_id_belongs_to_meta,
-                         IncorrectPIDs, HasNoBundles, TooManyBundles, DocumentError)
-import provenance.controller as controller
-from distributed_prov_system.settings import config
-import requests
+from .validators import (InputGraphChecker, graph_exists, check_graph_id_belongs_to_meta,
+                         IncorrectPIDs, HasNoBundles, TooManyBundles, DocumentError, is_org_registered)
 
 
-def send_token_request_to_TP(payload):
-    url = 'http://' + config.tp_fqdn + '/issueToken'
+def send_token_request_to_TP(payload, tp_url=None):
+    if tp_url is None:
+        tp_url = config.tp_fqdn
 
+    url = 'http://' + tp_url + '/issueToken'
     resp = requests.post(url, payload)
 
     assert resp.ok, f'Could not issue token, status code={resp.status_code}'
     return json.loads(resp.content)
+
+
+def send_register_request_to_TP(payload, organization_id, is_post=True):
+    tp_url = payload['TrustedPartyUri'] if 'TrustedPartyUri' in payload else config.tp_fqdn
+    url = 'http://' + tp_url + '/register'
+    payload['organizationId'] = organization_id
+
+    if is_post:
+        resp = requests.post(url, payload)
+    else:
+        resp = requests.put(url, payload)
+
+    assert resp.ok, f'Could not register/modify organization with id [{organization_id}], status code={resp.status_code}'
 
 
 def get_dummy_token():
@@ -36,6 +51,56 @@ def get_dummy_token():
 
 
 @csrf_exempt
+@require_http_methods(["POST", "PUT"])
+def register(request, organization_id):
+    if request.method == 'POST':
+        return register_org(request, organization_id)
+    else:
+        return modify_org(request, organization_id)
+
+
+def register_org(request, organization_id):
+    if is_org_registered:
+        return JsonResponse({"error": f"Organization with id [{organization_id}] is already registered. "
+                                      f"If you want to modify it, send PUT request!"}, status=404)
+
+    json_data = json.loads(request.body)
+    expected_json_fields = ('clientCertificate', 'intermediateCertificates')
+    for field in expected_json_fields:
+        if field not in json_data:
+            return JsonResponse({"error": f"Mandatory field '{field}' not present in request!"}, status=400)
+
+    controller.store_organization(organization_id,
+                                  json_data['clientCertificate'],
+                                  json_data['intermediateCertificates'],
+                                  json_data['TrustedPartyUri'] if 'TrustedPartyUri' in json_data else None)
+
+    send_register_request_to_TP(json_data, organization_id)
+
+    return HttpResponse(status=201)
+
+
+def modify_org(request, organization_id):
+    if not is_org_registered:
+        return JsonResponse({"error": f"Organization with id [{organization_id}] is not registered!"}, status=404)
+
+    json_data = json.loads(request.body)
+    expected_json_fields = ('clientCertificate', 'intermediateCertificates')
+    for field in expected_json_fields:
+        if field not in json_data:
+            return JsonResponse({"error": f"Mandatory field '{field}' not present in request!"}, status=400)
+
+    controller.modify_organization(organization_id,
+                                   json_data['clientCertificate'],
+                                   json_data['intermediateCertificates'],
+                                   json_data['TrustedPartyUri'] if 'TrustedPartyUri' in json_data else None)
+
+    send_register_request_to_TP(json_data, organization_id, is_post=False)
+
+    return HttpResponse(status=201)
+
+
+@csrf_exempt
 @require_http_methods(["GET", "POST", "PUT"])
 def graph(request, organization_id, graph_id):
     if request.method == 'POST':
@@ -47,6 +112,11 @@ def graph(request, organization_id, graph_id):
 
 
 def store_graph(request, organization_id, graph_id, is_update=False):
+    # TODO -- if organization is allowed to register directly at TP, send a req to TP to find out if registered
+    if not is_org_registered:
+        return JsonResponse({"error": f"Organization with id [{organization_id}] is not registered! "
+                                      f"Please register your organization first."}, status=404)
+
     json_data = json.loads(request.body)
 
     expected_json_fields = ('graph', 'signature')
@@ -86,7 +156,7 @@ def store_graph(request, organization_id, graph_id, is_update=False):
         return JsonResponse({"error": str(e)}, status=400)
 
     # TODO -- uncomment once TP is implemented and running
-    # token = send_token_request_to_TP(json_data)
+    token = send_token_request_to_TP(json_data)
     token = get_dummy_token()
 
     document = validator.get_document()

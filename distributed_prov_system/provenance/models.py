@@ -1,4 +1,4 @@
-from neomodel import (StructuredRel, StructuredNode, StringProperty, DateTimeProperty,
+from neomodel import (StructuredRel, StructuredNode, StringProperty, ArrayProperty, DateTimeProperty,
                       JSONProperty, DateTimeFormatProperty, RelationshipTo, RelationshipFrom)
 
 
@@ -130,6 +130,7 @@ class Bundle(BaseProvClass):
     pass
 
 
+### NON-PROV Models ###
 class Document(StructuredNode):
     identifier = StringProperty()
     signature = StringProperty()
@@ -149,3 +150,25 @@ class Token(StructuredNode):
     additional_info = JSONProperty()
 
     belongs_to = RelationshipTo('Document', 'belongs_to')
+    was_issued_by = RelationshipTo('TrustedParty', "was_issued_by")
+
+
+class Organization(StructuredNode):
+    identifier = StringProperty()
+    client_cert = StringProperty()
+    intermediate_certs = ArrayProperty(StringProperty())
+
+    trusts = RelationshipTo('TrustedParty', 'trusts')
+
+
+class TrustedParty(StructuredNode):
+    identifier = StringProperty()
+    certificate = StringProperty()
+    url = StringProperty()
+
+    trusts = RelationshipFrom('Organization', 'trusts')
+    was_issued_by = RelationshipFrom('Token', "was_issued_by")
+
+
+class DefaultTrustedParty(TrustedParty):
+    pass
