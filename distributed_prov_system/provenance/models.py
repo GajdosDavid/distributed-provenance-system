@@ -133,7 +133,6 @@ class Bundle(BaseProvClass):
 ### NON-PROV Models ###
 class Document(StructuredNode):
     identifier = StringProperty()
-    signature = StringProperty()
     graph = StringProperty()
     format = StringProperty()
 

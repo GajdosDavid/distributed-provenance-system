@@ -18,7 +18,6 @@ def import_graph(document: ProvDocument, json_data, token, graph_id, is_update=F
         neo_document = Document()
         neo_document.identifier = identifier
         neo_document.graph = json_data['graph']
-        neo_document.signature = json_data['signature']
         neo_document.save()
 
         main_activity_id = get_main_activity_id(bundle)
@@ -53,7 +52,7 @@ def store_into_meta_prov(meta_bundle, new_entity_id, token):
     meta_bundle.contains.connect(first_version)
     first_version.specialization_of.connect(gen_entity)
 
-    store_token(meta_bundle, first_version, token)
+    store_token_into_meta(meta_bundle, first_version, token)
 
 
 def update_meta_prov(graph_id, new_entity_id, token, main_activity_id):
@@ -75,10 +74,10 @@ def update_meta_prov(graph_id, new_entity_id, token, main_activity_id):
     new_version.specialization_of.connect(gen_entity)
     new_version.was_derived_from.connect(latest_entity, {'attributes': {'prov:type': 'prov:Revision'}})
 
-    store_token(meta_bundle, new_version, token)
+    store_token_into_meta(meta_bundle, new_version, token)
 
 
-def store_token(meta_bundle, entity, token):
+def store_token_into_meta(meta_bundle, entity, token):
     token_attributes = dict()
     for key, value in token.items():
         token_attributes[f"cpm:{key}"] = value

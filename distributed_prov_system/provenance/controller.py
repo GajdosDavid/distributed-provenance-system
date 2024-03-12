@@ -7,6 +7,7 @@ from prov.model import ProvDocument, ProvBundle
 from base64 import b64decode, b64encode
 from neomodel.exceptions import DoesNotExist
 import requests
+from datetime import datetime
 
 
 def get_provenance(organization_id, graph_id):
@@ -42,19 +43,31 @@ def store_subgraph_into_db(document_id, format, graph, token):
     d.identifier = document_id
     d.format = format
     d.graph = graph
+    d.save()
+
+    store_token_into_db(token, None, d)
+
+
+def store_token_into_db(token, document_id=None, neo_document=None):
+    assert document_id is not None or neo_document is not None
 
     t = Token()
     t.signature = token['signature']
     t.hash = token['data']['graphImprint']
     t.originator_id = token['data']['originatorId']
     t.authority_id = token['data']['authorityId']
-    t.token_timestamp = token['data']['tokenTimestamp']
-    t.message_timestamp = token['data']['messageTimestamp']
+    t.token_timestamp = datetime.fromtimestamp(token['data']['tokenTimestamp'])
+    t.message_timestamp = datetime.fromtimestamp(token['data']['messageTimestamp'])
 
     t.save()
-    d.save()
 
-    t.belongs_to.connect(d)
+    if neo_document is None:
+        neo_document = Document.nodes.get(identifier=f"{token['data']['originatorId']}_{document_id}")
+
+    trusted_party = TrustedParty.nodes.get(identifier=token['data']['authorityId'])
+
+    t.belongs_to.connect(neo_document)
+    t.was_issued_by.connect(trusted_party)
 
 
 def get_b64_encoded_subgraph(organization_id, graph_id, is_domain_specific=True, format='rdf'):

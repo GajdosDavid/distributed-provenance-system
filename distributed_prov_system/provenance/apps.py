@@ -11,6 +11,14 @@ class ProvenanceConfig(AppConfig):
     name = 'provenance'
 
     def ready(self):
+        try:
+            DefaultTrustedParty.nodes.get(identifier="iAmAuthority")
+        except DoesNotExist:
+            tp = DefaultTrustedParty()
+            tp.identifier = "iAmAuthority"
+            tp.url = config.tp_fqdn
+            tp.certificate = "voidHaha"
+            tp.save()
         pass
         # TODO -- uncomment when TP is running
         # resp = requests.get(f'http://{config.tp_fqdn}/info')

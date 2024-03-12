@@ -156,11 +156,12 @@ def store_graph(request, organization_id, graph_id, is_update=False):
         return JsonResponse({"error": str(e)}, status=400)
 
     # TODO -- uncomment once TP is implemented and running
-    token = send_token_request_to_TP(json_data)
+    # token = send_token_request_to_TP(json_data)
     token = get_dummy_token()
 
     document = validator.get_document()
     import_graph(document, json_data, copy.deepcopy(token), graph_id, is_update)
+    controller.store_token_into_db(token, validator.get_bundle_id())
 
     return JsonResponse({"token": token}, status=200)
 
