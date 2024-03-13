@@ -18,6 +18,8 @@ class ProvenanceConfig(AppConfig):
             tp.identifier = "iAmAuthority"
             tp.url = config.tp_fqdn
             tp.certificate = "voidHaha"
+            tp.valid = True
+            tp.checked = True
             tp.save()
         pass
         # TODO -- uncomment when TP is running
@@ -37,4 +39,6 @@ class ProvenanceConfig(AppConfig):
         #     tp.identifier = info['id']
         #     tp.url = config.tp_fqdn
         #     tp.certificate = info['certificate']
+        #     tp.valid = True
+        #     tp.checked = True
         #     tp.save()

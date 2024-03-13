@@ -1,5 +1,5 @@
 from neomodel import (StructuredRel, StructuredNode, StringProperty, ArrayProperty, DateTimeProperty,
-                      JSONProperty, DateTimeFormatProperty, RelationshipTo, RelationshipFrom)
+                      JSONProperty, DateTimeFormatProperty, RelationshipTo, RelationshipFrom, BooleanProperty)
 
 
 # Classes representing relationships between individual nodes that can hold additional information
@@ -168,6 +168,8 @@ class TrustedParty(StructuredNode):
     identifier = StringProperty()
     certificate = StringProperty()
     url = StringProperty()
+    checked = BooleanProperty(default=False)
+    valid = BooleanProperty(default=False)
 
     trusts = RelationshipFrom('Organization', 'trusts')
     was_issued_by = RelationshipFrom('Token', "was_issued_by")
