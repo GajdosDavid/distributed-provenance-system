@@ -113,8 +113,9 @@ def send_signature_verification_request(payload, organization_id):
 
 class InputGraphChecker:
 
-    def __init__(self, graph):
+    def __init__(self, graph, format):
         self._graph = base64.b64decode(graph)
+        self._graph_format = format
 
         self._prov_document = None
         self._prov_bundle = None
@@ -136,13 +137,9 @@ class InputGraphChecker:
         return self._main_activity.identifier.localpart
 
     def parse_graph(self):
-        # TODO -- find out format from the grpah
-        self._prov_document = ProvDocument.deserialize(content=self._graph, format="rdf")
+        self._prov_document = ProvDocument.deserialize(content=self._graph, format=self._graph_format)
 
-        # this will happen only once, however cannot be indexed, so it needs to be done inside loop
-        for bundle in self._prov_document.bundles:
-            self._prov_bundle = bundle
-
+        self._prov_bundle = list(self._prov_document.bundles)[0]
         self._main_activity = self._retrieve_main_activity()
 
     def check_ids_match(self, graph_id):

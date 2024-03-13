@@ -109,12 +109,12 @@ def store_graph(request, organization_id, graph_id, is_update=False):
         return JsonResponse({"error": str(e)}, status=404)
 
     json_data = json.loads(request.body)
-    expected_json_fields = ('graph', 'signature')
+    expected_json_fields = ('graph', 'signature', 'graphFormat')
     for field in expected_json_fields:
         if field not in json_data:
             return JsonResponse({"error": f"Mandatory field '{field}' not present in request!"}, status=400)
 
-    validator = InputGraphChecker(json_data['graph'])
+    validator = InputGraphChecker(json_data['graph'], json_data['graphFormat'])
     try:
         validator.parse_graph()
         if is_update:
