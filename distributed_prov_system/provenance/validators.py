@@ -24,6 +24,18 @@ class DocumentError(Exception):
     pass
 
 
+class OrganizationNotRegistered(Exception):
+    pass
+
+
+class UncheckedTrustedParty(Exception):
+    pass
+
+
+class InvalidTrustedParty(Exception):
+    pass
+
+
 def is_org_registered_at_TP(organization_id) -> bool:
     # resp = requests.get(f'http://{config.tp_fqdn}/organizations/{organization_id}')
 
@@ -31,6 +43,8 @@ def is_org_registered_at_TP(organization_id) -> bool:
     # return resp.ok
 
     return True
+
+
 def is_org_registered(organization_id) -> bool:
     try:
         # check if organization already exists
@@ -39,6 +53,25 @@ def is_org_registered(organization_id) -> bool:
         return True
     except DoesNotExist:
         return False
+
+
+def check_organization_is_registered(organization_id):
+    if is_org_registered_at_TP(organization_id):
+        return
+
+    if not is_org_registered(organization_id):
+        raise OrganizationNotRegistered(f"Organization with id [{organization_id}] is not registered! "
+                                        f"Please register your organization first.")
+
+    org = Organization.nodes.get(identifier=organization_id)
+    tp = list(org.trusts.all())[0]
+    if not tp.checked:
+        raise UncheckedTrustedParty(f"Trusted party for organization with id [{organization_id}] has not yet been "
+                                    f"checked for its validity. Please be patient.")
+
+    if not tp.valid:
+        raise InvalidTrustedParty(f"Trusted party for organization with id [{organization_id}] has been checked "
+                                  f"and is not considered valid. For more information contact administrator.")
 
 
 def graph_exists(organization_id, graph_id) -> bool:
@@ -84,7 +117,7 @@ class InputGraphChecker:
 
         self._prov_document = None
         self._prov_bundle = None
-        self._main_activity= None
+        self._main_activity = None
 
     def get_document(self):
         assert self._prov_document is not None, "Graph not yet parsed"

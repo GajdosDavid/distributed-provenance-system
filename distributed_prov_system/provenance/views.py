@@ -12,18 +12,8 @@ from prov2neomodel.prov2neomodel import import_graph
 
 from .validators import (InputGraphChecker, graph_exists, check_graph_id_belongs_to_meta,
                          IncorrectPIDs, HasNoBundles, TooManyBundles, DocumentError, is_org_registered,
-                         is_org_registered_at_TP)
-
-
-def send_token_request_to_TP(payload, tp_url=None):
-    if tp_url is None:
-        tp_url = config.tp_fqdn
-
-    url = 'http://' + tp_url + '/issueToken'
-    resp = requests.post(url, payload)
-
-    assert resp.ok, f'Could not issue token, status code={resp.status_code}'
-    return json.loads(resp.content)
+                         InvalidTrustedParty, UncheckedTrustedParty, OrganizationNotRegistered,
+                         check_organization_is_registered)
 
 
 def send_register_request_to_TP(payload, organization_id, is_post=True):
@@ -113,9 +103,10 @@ def graph(request, organization_id, graph_id):
 
 
 def store_graph(request, organization_id, graph_id, is_update=False):
-    if not is_org_registered(organization_id) and not is_org_registered_at_TP(organization_id):
-        return JsonResponse({"error": f"Organization with id [{organization_id}] is not registered! "
-                                      f"Please register your organization first."}, status=404)
+    try:
+        check_organization_is_registered(organization_id)
+    except (InvalidTrustedParty, UncheckedTrustedParty, OrganizationNotRegistered) as e:
+        return JsonResponse({"error": str(e)}, status=404)
 
     json_data = json.loads(request.body)
     expected_json_fields = ('graph', 'signature')
@@ -156,7 +147,7 @@ def store_graph(request, organization_id, graph_id, is_update=False):
 
     # TODO -- uncomment once TP is implemented and running
     # tp_url = get_TP_url_by_organization(organization_id)
-    # token = send_token_request_to_TP(json_data, tp_url)
+    # token = controller.send_token_request_to_TP(json_data, tp_url)
     token = get_dummy_token()
 
     document = validator.get_document()
@@ -168,13 +159,13 @@ def store_graph(request, organization_id, graph_id, is_update=False):
 
 def get_graph(request, organization_id, graph_id):
     try:
-        g = controller.get_provenance(organization_id, graph_id)
-        t = controller.get_token(organization_id, graph_id)
+        d = controller.get_provenance(organization_id, graph_id)
+        t = controller.get_token(organization_id, graph_id, d)
     except DoesNotExist:
         return JsonResponse({"error": f"Graph with id [{graph_id}] does not "
                                       f"exist under organization [{organization_id}]"}, status=404)
 
-    return JsonResponse({"graph": g, "token": t})
+    return JsonResponse({"graph": d.graph, "token": t})
 
 
 @csrf_exempt
@@ -196,7 +187,7 @@ def graph_meta(request, meta_id):
     #     tp_url = controller.get_TP_url_by_organization(organization_id)
     # else:
     #     tp_url = None
-    # t = send_token_request_to_TP({"graph": g}, tp_url)
+    # t = controller.send_token_request_to_TP({"graph": g}, tp_url)
     t = get_dummy_token()
 
     return JsonResponse({"graph": g, "token": t})
@@ -230,7 +221,7 @@ def get_subgraph(request, organization_id, graph_id, is_domain_specific):
 
             # TODO -- uncomment once TP is up and running
             # tp_url = get_TP_url_by_organization(organization_id)
-            # t = send_token_request_to_TP({"graph": g}, tp_url)
+            # t = controller.send_token_request_to_TP({"graph": g}, tp_url)
             t = get_dummy_token()
         except DoesNotExist:
             return JsonResponse({"error": f"Graph with id [{graph_id}] does not "

@@ -6,14 +6,28 @@ from prov2neomodel.neomodel2prov import convert_to_prov
 from prov.model import ProvDocument, ProvBundle
 from base64 import b64decode, b64encode
 from neomodel.exceptions import DoesNotExist
+from neomodel import db
+from distributed_prov_system.settings import config
+from .validators import is_org_registered
 import requests
 from datetime import datetime
+
+
+def send_token_request_to_TP(payload, tp_url=None):
+    if tp_url is None:
+        tp_url = config.tp_fqdn
+
+    url = 'http://' + tp_url + '/issueToken'
+    resp = requests.post(url, payload)
+
+    assert resp.ok, f'Could not issue token, status code={resp.status_code}'
+    return json.loads(resp.content)
 
 
 def get_provenance(organization_id, graph_id):
     d = Document.nodes.get(identifier=f"{organization_id}_{graph_id}")
 
-    return d.graph
+    return d
 
 
 def query_db_for_subgraph(organization_id, graph_id, requested_format, is_domain_specific):
@@ -69,6 +83,8 @@ def store_token_into_db(token, document_id=None, neo_document=None):
     t.belongs_to.connect(neo_document)
     t.was_issued_by.connect(trusted_party)
 
+    return t
+
 
 def get_b64_encoded_subgraph(organization_id, graph_id, is_domain_specific=True, format='rdf'):
     d = Document.nodes.get(identifier=f"{organization_id}_{graph_id}")
@@ -78,17 +94,44 @@ def get_b64_encoded_subgraph(organization_id, graph_id, is_domain_specific=True,
     return b64encode(subgraph).decode('utf-8')
 
 
-def get_token(organization_id, graph_id):
-    t = Entity.nodes.get(identifier=f"{organization_id}_{graph_id}")
+def get_token(organization_id, graph_id, document):
+    registered = is_org_registered(organization_id)
+    if registered:
+        query = """
+                MATCH (org:Organization) WHERE org.identifier=$organization_id 
+                MATCH (org)-[:trusts]->(tp:TrustedParty)<-[:was_issued_by]-(token:Token)-[:belongs_to]->(doc:Document) 
+                WHERE doc.identifier=$doc_id 
+                RETURN token
+                """
+    else:
+        query = """
+                MATCH (tp:DefaultTrustedParty)<-[:was_issued_by]-(token:Token)-[:belongs_to]->(doc:Document) 
+                WHERE doc.identifier=$doc_id 
+                RETURN token
+                """
+
+    results, meta = db.cypher_query(query, {"organization_id": organization_id, "doc_id": f"{organization_id}_{graph_id}"},
+                                    resolve_objects=True)
+
+    if len(results) > 0:
+        t = results[0][0]
+    else:
+        if registered:
+            tp_url = get_TP_url_by_organization(organization_id)
+        else:
+            tp_url = config.tp_fqdn
+
+        token = send_token_request_to_TP({"graph": document.graph}, tp_url)
+        t = store_token_into_db(token, None, document)
 
     token_data = {
-        "originatorId": t.attributes['originatorId'],
-        "authorityId": t.attributes['authorityId'],
-        "tokenTimestamp": t.attributes['tokenTimestamp'],
-        "messageTimestamp": t.attributes['messageTimestamp'],
-        "graphImprint": t.attributes['graphImprint']
+        "originatorId": t.originator_id,
+        "authorityId": t.authority_id,
+        "tokenTimestamp": t.token_timestamp,
+        "messageTimestamp": t.message_timestamp,
+        "graphImprint": t.hash
     }
-    return {"data": token_data, "signature": t.attributes['signature']}
+    return {"data": token_data, "signature": t.signature}
 
 
 def get_b64_encoded_meta_provenance(meta_id, requested_format):
