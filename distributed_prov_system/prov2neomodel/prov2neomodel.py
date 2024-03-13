@@ -1,11 +1,11 @@
 from datetime import datetime
-from prov.model import ProvDocument, ProvActivity
+from prov.model import ProvDocument
 from provenance.models import Bundle, Entity, Document, Activity, Agent
 from neomodel.exceptions import DoesNotExist
 from neomodel.match import Traversal, OUTGOING
 
 
-def import_graph(document: ProvDocument, json_data, token, graph_id, is_update=False):
+def import_graph(document: ProvDocument, json_data, token, graph_id, main_activity_id, is_update=False):
     assert len(document.bundles) == 1, 'Only one bundle expected per document'
     signature = token['signature']
     token = token['data']
@@ -20,7 +20,6 @@ def import_graph(document: ProvDocument, json_data, token, graph_id, is_update=F
         neo_document.graph = json_data['graph']
         neo_document.save()
 
-        main_activity_id = get_main_activity_id(bundle)
         if is_update:
             update_meta_prov(graph_id, identifier, token, main_activity_id)
         else:
@@ -126,12 +125,3 @@ def get_TP_agent(meta_bundle, authority_id):
         meta_bundle.contains.connect(agent)
 
     return agent
-
-
-def get_main_activity_id(bundle):
-    for activity in bundle.get_records(ProvActivity):
-        for (_, value) in activity.attributes:
-            if str(value) == "cpm:mainActivity":
-                return activity.identifier.localpart
-
-    return None

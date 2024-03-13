@@ -151,7 +151,7 @@ def store_graph(request, organization_id, graph_id, is_update=False):
     token = get_dummy_token()
 
     document = validator.get_document()
-    import_graph(document, json_data, copy.deepcopy(token), graph_id, is_update)
+    import_graph(document, json_data, copy.deepcopy(token), graph_id, validator.get_main_activity_id(), is_update)
     controller.store_token_into_db(token, validator.get_bundle_id())
 
     return JsonResponse({"token": token}, status=200)
