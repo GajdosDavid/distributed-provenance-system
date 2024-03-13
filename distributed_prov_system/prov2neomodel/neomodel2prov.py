@@ -71,7 +71,7 @@ def add_version_chain_to_bundle(bundle: ProvBundle, gen_entity: Entity):
         try:
             ns = namespaces[org]
         except KeyError:
-            ns = Namespace(org, config.fqdn + f"/organizations/{org}/graphs/")
+            ns = Namespace(org, config.fqdn + f"/api/v1/organizations/{org}/graphs/")
             namespaces[org] = ns
 
         return QualifiedName(ns, id)
