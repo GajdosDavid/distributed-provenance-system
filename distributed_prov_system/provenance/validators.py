@@ -2,6 +2,7 @@ from prov.model import ProvDocument, ProvEntity, ProvActivity
 from neomodel.match import Traversal, INCOMING
 import base64
 import requests
+import concurrent.futures
 
 from .models import Document, Organization, Entity
 from neomodel.exceptions import DoesNotExist
@@ -170,15 +171,15 @@ class InputGraphChecker:
         return True
 
     def _are_pids_resolvable(self):
-        forward_connectors, backward_connectors = self._retrieve_backward_and_forward_conns()
+        connectors = self._retrieve_connectors_from_graph()
 
-        for connector in forward_connectors:
-            if not self._is_pid_resolvable(connector):
-                return False, f'ForwardConnector with id={connector.identifier.localpart} has incorrectly resolvable PID'
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            futures = {executor.submit(self._is_pid_resolvable, connector): connector for connector in connectors}
 
-        for connector in backward_connectors:
-            if not self._is_pid_resolvable(connector):
-                return False, f'BackwardConnector with id={connector.identifier.localpart} has incorrectly resolvable PID'
+        for future in concurrent.futures.as_completed(futures):
+            connector = futures[future]
+            if not future.result():
+                return False, f'ForwardConnector/BackwardConnector with id=[{connector.identifier.localpart}] has incorrectly resolvable PID'
 
         # Check for resolvability of MainActivity cannot be done as one meta-prov can contain multiple version chains
         # plus it might not exist yet if it's the first chain in meta-prov
@@ -216,9 +217,8 @@ class InputGraphChecker:
 
         return main_activity
 
-    def _retrieve_backward_and_forward_conns(self):
-        forward_connectors = []
-        backward_connectors = []
+    def _retrieve_connectors_from_graph(self):
+        connectors = []
 
         for entity in self._prov_bundle.get_records(ProvEntity):
             prov_types = entity.get_asserted_types()
@@ -227,9 +227,7 @@ class InputGraphChecker:
                 continue
 
             for t in prov_types:
-                if t.localpart == 'forwardConnector':
-                    forward_connectors.append(entity)
-                elif t.localpart == 'backwardConnector':
-                    backward_connectors.append(entity)
+                if t.localpart == 'forwardConnector' or t.localpart == 'backwardConnector':
+                    connectors.append(entity)
 
-        return forward_connectors, backward_connectors
+        return connectors
