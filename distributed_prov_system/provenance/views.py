@@ -118,7 +118,7 @@ def store_graph(request, organization_id, graph_id, is_update=False):
     try:
         validator.parse_graph()
         if is_update:
-            check_graph_id_belongs_to_meta(validator.get_main_activity_id(), graph_id, organization_id)
+            check_graph_id_belongs_to_meta(validator.get_meta_provenance_id(), graph_id, organization_id)
             if not graph_exists(organization_id, graph_id):
                 return JsonResponse({"error": f"Graph with id={graph_id} does not exist. Please check whether the ID"
                                               f" you have given is correct."}, status=404)
@@ -151,7 +151,7 @@ def store_graph(request, organization_id, graph_id, is_update=False):
     token = get_dummy_token()
 
     document = validator.get_document()
-    import_graph(document, json_data, copy.deepcopy(token), graph_id, validator.get_main_activity_id(), is_update)
+    import_graph(document, json_data, copy.deepcopy(token), graph_id, validator.get_meta_provenance_id(), is_update)
     controller.store_token_into_db(token, validator.get_bundle_id())
 
     return JsonResponse({"token": token}, status=200)

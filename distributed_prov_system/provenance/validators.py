@@ -3,8 +3,10 @@ from neomodel.match import Traversal, INCOMING
 import base64
 import requests
 import concurrent.futures
+from urllib.parse import urlparse
+import socket
 
-from .models import Document, Organization, Entity
+from .models import Document, Organization, Entity, Bundle
 from neomodel.exceptions import DoesNotExist
 from distributed_prov_system.settings import config
 
@@ -76,11 +78,17 @@ def graph_exists(organization_id, graph_id) -> bool:
         return False
 
 
-def check_graph_id_belongs_to_meta(main_activity_id, graph_id, organization_id):
+def check_graph_id_belongs_to_meta(meta_provenance_id, graph_id, organization_id):
     entity = Entity.nodes.get(identifier=f'{organization_id}_{graph_id}')
     definition = dict(node_class=Entity, direction=INCOMING,
                       relation_type="was_derived_from", model=None)
     entity_traversal = Traversal(entity, Entity.__label__, definition)
+
+    try:
+        Bundle.nodes.get(identifier=meta_provenance_id)
+    except DoesNotExist:
+        raise DocumentError(f"Meta provenance with id [{meta_provenance_id}] does not exist!")
+
     if len(list(entity_traversal.all())) != 0:
         raise DocumentError(f"Graph with given id={graph_id} is not the latest version."
                             f" CPM does not allow version forks.")
@@ -88,9 +96,9 @@ def check_graph_id_belongs_to_meta(main_activity_id, graph_id, organization_id):
     meta_bundle = list(entity.contains.all())
     assert len(meta_bundle) == 1, "Entity cannot be part of more than one meta bundles"
 
-    if meta_bundle[0].identifier != main_activity_id:
+    if meta_bundle[0].identifier != meta_provenance_id:
         raise DocumentError(f"Graph with id={graph_id} is part of meta bundle with id={meta_bundle[0].identifier},"
-                            f" however main_activity from given bundle is resolvable to different id={main_activity_id}")
+                            f" however main_activity from given bundle is resolvable to different id={meta_provenance_id}")
 
 
 def send_signature_verification_request(payload, organization_id):
@@ -111,6 +119,7 @@ class InputGraphChecker:
         self._prov_document = None
         self._prov_bundle = None
         self._main_activity = None
+        self._meta_provenance_id = None
 
     def get_document(self):
         assert self._prov_document is not None, "Graph not yet parsed"
@@ -122,16 +131,17 @@ class InputGraphChecker:
 
         return self._prov_bundle.identifier.localpart
 
-    def get_main_activity_id(self):
-        assert self._prov_bundle is not None, "Graph not yet parsed"
+    def get_meta_provenance_id(self):
+        assert self._meta_provenance_id is not None, "Graph not yet parsed"
 
-        return self._main_activity.identifier.localpart
+        return self._meta_provenance_id
 
     def parse_graph(self):
         self._prov_document = ProvDocument.deserialize(content=self._graph, format=self._graph_format)
 
         self._prov_bundle = list(self._prov_document.bundles)[0]
         self._main_activity = self._retrieve_main_activity()
+        self._meta_provenance_id = self._check_resolvability_and_retrieve_activity_id()
 
     def check_ids_match(self, graph_id):
         if self._prov_bundle.identifier.localpart != graph_id:
@@ -169,11 +179,6 @@ class InputGraphChecker:
             if not future.result():
                 return False, f'ForwardConnector/BackwardConnector with id=[{connector.identifier.localpart}] has incorrectly resolvable PID'
 
-        # Check for resolvability of MainActivity cannot be done as one meta-prov can contain multiple version chains
-        # plus it might not exist yet if it's the first chain in meta-prov
-        # if not self._is_pid_resolvable(main_activity):
-        #     return False, f'MainActivity with id={main_activity.identifier.localpar} has incorrectly resolvable PID'
-
         return True, ""
 
     def _is_pid_resolvable(self, element):
@@ -183,9 +188,33 @@ class InputGraphChecker:
 
         return resp.ok
 
+    def _check_resolvability_and_retrieve_activity_id(self):
+        ns_uri = self._main_activity.identifier.namespace.uri
+        if ns_uri[-1] != '/':
+            ns_uri = ns_uri + '/'
+
+        localpart = self._main_activity.identifier.localpart
+        url = ns_uri + localpart
+        resp = requests.get(url)
+        parsed_url = urlparse(resp.url)
+        ip, port = parsed_url.netloc.split(':')
+
+        try:
+            socket.inet_aton(ip)
+        except socket.error:
+            ip = socket.gethostbyname(ip)
+
+        if ip not in socket.gethostbyname_ex(socket.gethostname())[-1]:
+            raise DocumentError(f"MainActivity PID is expected to be resolvable to this server's "
+                                f"IP address, however it resolved to [{ip}]")
+
+        if "/api/v1/graphs/meta/" not in parsed_url.path:
+            raise DocumentError(f"MainActivity PID resolves to incorrect path {parsed_url.path}. "
+                                f"Expected: /api/v1/graphs/meta/")
+
+        return parsed_url.path.split('/')[-1]
+
     def _retrieve_main_activity(self):
-        # TODO -- rather retrieve what this resolves to and not the id of activity
-        # TODO -- check that this resolves to my IP
         main_activity = None
 
         for activity in self._prov_bundle.get_records(ProvActivity):
