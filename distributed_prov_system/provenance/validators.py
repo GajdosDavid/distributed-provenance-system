@@ -6,7 +6,7 @@ import concurrent.futures
 from urllib.parse import urlparse
 import socket
 
-from .models import Document, Organization, Entity, Bundle
+from .models import Document, Organization, Entity, Bundle, ConnectorTable
 from neomodel.exceptions import DoesNotExist
 from distributed_prov_system.settings import config
 
@@ -120,6 +120,10 @@ class InputGraphChecker:
         self._prov_bundle = None
         self._main_activity = None
         self._meta_provenance_id = None
+        self._forward_connectors = None
+        self._backward_connectors = None
+        self._processed_forward_connectors = None
+        self._processed_backward_connectors = None
 
     def get_document(self):
         assert self._prov_document is not None, "Graph not yet parsed"
@@ -136,12 +140,23 @@ class InputGraphChecker:
 
         return self._meta_provenance_id
 
+    def get_forward_connectors(self):
+        assert self._processed_forward_connectors is not None, "Graph not yet validated!"
+
+        return self._processed_forward_connectors
+
+    def get_backward_connectors(self):
+        assert self._processed_backward_connectors is not None, "Graph not yet validated!"
+
+        return self._processed_backward_connectors
+
     def parse_graph(self):
         self._prov_document = ProvDocument.deserialize(content=self._graph, format=self._graph_format)
 
         self._prov_bundle = list(self._prov_document.bundles)[0]
         self._main_activity = self._retrieve_main_activity()
         self._meta_provenance_id = self._check_resolvability_and_retrieve_activity_id()
+        self._forward_connectors, self._backward_connectors = self._retrieve_connectors_from_graph()
 
     def check_ids_match(self, graph_id):
         if self._prov_bundle.identifier.localpart != graph_id:
@@ -169,35 +184,58 @@ class InputGraphChecker:
         return True
 
     def _are_pids_resolvable(self):
-        connectors = self._retrieve_connectors_from_graph()
+        self._processed_forward_connectors = []
+        self._processed_backward_connectors = []
 
         with concurrent.futures.ThreadPoolExecutor() as executor:
-            futures = {executor.submit(self._is_pid_resolvable, connector): connector for connector in connectors}
+            backward_conns_futures = {executor.submit(self._ping_connector, connector): connector for connector in self._backward_connectors}
+            forward_conns_futures = {executor.submit(self._ping_connector, connector): connector for connector in self._forward_connectors}
 
-        for future in concurrent.futures.as_completed(futures):
-            connector = futures[future]
-            if not future.result():
-                return False, f'ForwardConnector/BackwardConnector with id=[{connector.identifier.localpart}] has incorrectly resolvable PID'
+        for future in concurrent.futures.as_completed(backward_conns_futures):
+            connector = backward_conns_futures[future]
+            resp = future.result()
+            if not resp.ok:
+                return False, f'BackwardConnector with id=[{connector.identifier.localpart}] has incorrectly resolvable PID'
+
+            parsed_url = urlparse(resp.url)
+            if self._contains_my_ip_addr(parsed_url):
+                self._processed_backward_connectors.append(connector)
+
+        for future in concurrent.futures.as_completed(forward_conns_futures):
+            connector = forward_conns_futures[future]
+            resp = future.result()
+            parsed_url = urlparse(resp.url)
+            if not self._contains_my_ip_addr(parsed_url):
+                if not resp.ok:
+                    return False, f'ForwardConnector with id=[{connector.identifier.localpart}] has incorrectly resolvable PID'
+            else:
+                if "/api/v1/connectors/" not in parsed_url.path:
+                    return False, f'ForwardConnector with id=[{connector.identifier.localpart}] has incorrectly resolvable PID'
+
+                self._processed_forward_connectors.append(connector)
 
         return True, ""
 
-    def _is_pid_resolvable(self, element):
-        url = element.identifier.uri
+    def _contains_my_ip_addr(self, url):
+        ip = url.netloc.split(':')[0]
 
+        try:
+            socket.inet_aton(ip)
+        except socket.error:
+            ip = socket.gethostbyname(ip)
+
+        return ip in socket.gethostbyname_ex(socket.gethostname())[-1]
+
+    def _ping_connector(self, connector):
+        url = connector.identifier.uri
         resp = requests.get(url)
 
-        return resp.ok
+        return resp
 
     def _check_resolvability_and_retrieve_activity_id(self):
-        ns_uri = self._main_activity.identifier.namespace.uri
-        if ns_uri[-1] != '/':
-            ns_uri = ns_uri + '/'
-
-        localpart = self._main_activity.identifier.localpart
-        url = ns_uri + localpart
-        resp = requests.get(url)
+        resp = requests.get(self._main_activity.identifier.uri)
         parsed_url = urlparse(resp.url)
-        ip, port = parsed_url.netloc.split(':')
+        ip = parsed_url.netloc.split(':')[0]
 
         try:
             socket.inet_aton(ip)
@@ -235,7 +273,8 @@ class InputGraphChecker:
         return main_activity
 
     def _retrieve_connectors_from_graph(self):
-        connectors = []
+        forward_connectors = []
+        backward_connectors = []
 
         for entity in self._prov_bundle.get_records(ProvEntity):
             prov_types = entity.get_asserted_types()
@@ -244,7 +283,9 @@ class InputGraphChecker:
                 continue
 
             for t in prov_types:
-                if t.localpart == 'forwardConnector' or t.localpart == 'backwardConnector':
-                    connectors.append(entity)
+                if t.localpart == 'forwardConnector':
+                    forward_connectors.append(entity)
+                elif t.localpart == 'backwardConnector':
+                    backward_connectors.append(entity)
 
-        return connectors
+        return forward_connectors, backward_connectors

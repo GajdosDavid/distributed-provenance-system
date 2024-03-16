@@ -177,3 +177,6 @@ class TrustedParty(StructuredNode):
 
 class DefaultTrustedParty(TrustedParty):
     pass
+
+class ConnectorTable(StructuredNode):
+    pass

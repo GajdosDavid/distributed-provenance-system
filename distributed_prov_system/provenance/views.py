@@ -145,6 +145,9 @@ def store_graph(request, organization_id, graph_id, is_update=False):
     except (IncorrectPIDs, HasNoBundles, TooManyBundles, DocumentError) as e:
         return JsonResponse({"error": str(e)}, status=400)
 
+    controller.store_connectors(validator.get_forward_connectors(), validator.get_backward_connectors(),
+                                validator.get_bundle_id(), validator.get_meta_provenance_id())
+
     # TODO -- uncomment once TP is implemented and running
     # tp_url = get_TP_url_by_organization(organization_id)
     # token = controller.send_token_request_to_TP(json_data, tp_url)
@@ -232,3 +235,9 @@ def get_subgraph(request, organization_id, graph_id, is_domain_specific):
         controller.store_subgraph_into_db(f"{organization_id}_{graph_id}_{suffix}", requested_format, g, t)
 
     return JsonResponse({"graph": g, "token": t})
+
+
+@csrf_exempt
+@require_GET
+def connector_retrieve(request, connector_id):
+    pass

@@ -180,6 +180,42 @@ def store_organization(organization_id, client_cert, intermediate_certs, tp_uri=
     org.trusts.connect(tp)
 
 
+def store_connectors(forward_connectors, backward_connectors, source_bundle, source_meta):
+    for connector in forward_connectors:
+        try:
+            conn_bundle = Bundle.nodes.get(identifier=connector.identifier.localpart)
+        except DoesNotExist:
+            conn_bundle = Bundle()
+            conn_bundle.identifier = connector.identifier.localpart
+            conn_bundle.save()
+
+        e = Entity()
+        e.identifier = source_bundle
+        e.attributes = {"prov:type": "cpm:forwardConnectorBundle", "cpm:metabundle": source_meta}
+        e.save()
+
+        conn_bundle.contains.connect(e)
+
+    for connector in backward_connectors:
+        conn_bundle = Bundle.nodes.get(identifier=connector.identifier.localpart)
+
+        e = Entity()
+        e.identifier = source_bundle
+        e.attributes = {"prov:type": "cpm:backwardConnectorBundle", "cpm:metabundle": source_meta}
+        e.save()
+
+        conn_bundle.contains.connect(e)
+
+        destination_bundle = None
+        for key, value in connector.attributes:
+            if key.localpart == "receiverBundleId":
+                destination_bundle = value
+                break
+
+        forward_conn = conn_bundle.contains.get(identifier=destination_bundle.localpart)
+        e.was_derived_from.connect(forward_conn)
+
+
 def modify_organization(organization_id, client_cert, intermediate_certs, tp_uri=None):
     org = Organization.nodes.get(identifier=organization_id)
     org.identifier = organization_id
