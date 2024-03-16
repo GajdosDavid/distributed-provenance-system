@@ -31,7 +31,7 @@ def send_register_request_to_TP(payload, organization_id, is_post=True):
 
 def get_dummy_token():
     return {"data": {
-                "originatorId": "iAmOriginator",
+                "originatorId": "MUNI",
                 "authorityId": "iAmAuthority",
                 "tokenTimestamp": 123,
                 "messageTimestamp": 123,
@@ -146,7 +146,7 @@ def store_graph(request, organization_id, graph_id, is_update=False):
         return JsonResponse({"error": str(e)}, status=400)
 
     controller.store_connectors(validator.get_forward_connectors(), validator.get_backward_connectors(),
-                                validator.get_bundle_id(), validator.get_meta_provenance_id())
+                                validator.get_bundle_id(), validator.get_meta_provenance_id(), organization_id)
 
     # TODO -- uncomment once TP is implemented and running
     # tp_url = get_TP_url_by_organization(organization_id)
@@ -240,4 +240,14 @@ def get_subgraph(request, organization_id, graph_id, is_domain_specific):
 @csrf_exempt
 @require_GET
 def connector_retrieve(request, connector_id):
-    pass
+    requested_format = request.GET.get('format', 'rdf').lower()
+
+    if requested_format not in ('rdf', 'json', 'xml', 'provn'):
+        return JsonResponse({"error": f"Requested format [{requested_format}] is not supported!"}, status=400)
+
+    try:
+        g = controller.get_b64_encoded_connector_bundle(connector_id, requested_format)
+    except DoesNotExist:
+        return JsonResponse({"error": f"The table for connector with id [{connector_id}] does not exist"}, status=404)
+
+    return JsonResponse({"graph": g})

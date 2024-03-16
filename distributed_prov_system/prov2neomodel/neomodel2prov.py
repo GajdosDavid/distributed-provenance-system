@@ -3,17 +3,18 @@ from distributed_prov_system.settings import config
 from neomodel.match import Traversal, INCOMING, OUTGOING
 from provenance.models import Entity, Activity, Agent
 
+DEFAULT_NAMESPACE = config.fqdn
+
 NAMESPACES = {
     "prov": Namespace("prov", "http://www.w3.org/ns/prov#"),
-    "meta": Namespace("meta", config.fqdn + f"/graphs/meta/"),
+    "meta": Namespace("meta", DEFAULT_NAMESPACE + f"/api/v1/graphs/meta/"),
     "pav": Namespace("pav", "http://purl.org/pav/"),
-    "cpm": Namespace("cpm", "https://www.commonprovenancemodel.org/cpm-namespace-v1-0/")
+    "cpm": Namespace("cpm", "https://www.commonprovenancemodel.org/cpm-namespace-v1-0/"),
+    "connectors": Namespace("connectors", DEFAULT_NAMESPACE + "/api/v1/connectors/")
 }
 
-DEFAULT_NAMESPACE = "http://example.org/"
 
-
-def convert_to_prov(neo_bundle):
+def convert_meta_to_prov(neo_bundle):
     def get_gen_entities(bundle):
         definition = dict(node_class=Entity, direction=OUTGOING,
                           relation_type="contains", model=None)
@@ -54,8 +55,6 @@ def convert_attributes_to_dict(neo_element):
 
 
 def add_version_chain_to_bundle(bundle: ProvBundle, gen_entity: Entity):
-    namespaces = dict()
-
     def get_sorted_specialized_entities_from_gen(g_entity):
         definition = dict(node_class=Entity, direction=INCOMING,
                           relation_type="specialization_of", model=None)
@@ -69,10 +68,10 @@ def add_version_chain_to_bundle(bundle: ProvBundle, gen_entity: Entity):
         org, id = entity.identifier.split('_', 1)
 
         try:
-            ns = namespaces[org]
+            ns = NAMESPACES[org]
         except KeyError:
             ns = Namespace(org, config.fqdn + f"/api/v1/organizations/{org}/graphs/")
-            namespaces[org] = ns
+            NAMESPACES[org] = ns
 
         return QualifiedName(ns, id)
 
@@ -130,3 +129,49 @@ def add_version_chain_to_bundle(bundle: ProvBundle, gen_entity: Entity):
         previous_version_entity = version_entity
 
     bundle.add_record(gen_prov_entity)
+
+
+def convert_connector_table_to_prov(neo_bundle):
+    def get_forward_connectors(bundle):
+        connectors = []
+
+        for conn in bundle.contains.all():
+            for key, value in conn.attributes.items():
+                if key == 'prov:type' and value == 'cpm:forwardConnectorBundle':
+                    connectors.append(conn)
+
+        return connectors
+
+    def get_entity_qualified_name(entity: Entity):
+        org, id, _ = entity.identifier.split('_', 2)
+
+        try:
+            ns = NAMESPACES[org]
+        except KeyError:
+            ns = Namespace(org, config.fqdn + f"/api/v1/organizations/{org}/graphs/")
+            NAMESPACES[org] = ns
+
+        return QualifiedName(ns, id)
+
+    document = ProvDocument(namespaces=[NAMESPACES['connectors']])
+    prov_bundle = ProvBundle(identifier=QualifiedName(NAMESPACES['connectors'], neo_bundle.identifier),
+                             namespaces=[NAMESPACES['meta']])
+
+    for forward_conn in get_forward_connectors(neo_bundle):
+        forward_conn_entity = ProvEntity(prov_bundle, get_entity_qualified_name(forward_conn),
+                                         attributes=convert_attributes_to_dict(forward_conn))
+        prov_bundle.add_record(forward_conn_entity)
+
+        definition = dict(node_class=Entity, direction=INCOMING,
+                          relation_type="was_derived_from", model=None)
+        traversal = Traversal(forward_conn, Entity.__label__, definition)
+        for backward_conn in traversal.all():
+            backward_conn_entity = ProvEntity(prov_bundle, get_entity_qualified_name(backward_conn),
+                                              attributes=convert_attributes_to_dict(backward_conn))
+            prov_bundle.add_record(backward_conn_entity)
+            backward_conn_entity.wasDerivedFrom(forward_conn_entity)
+
+    document.add_bundle(prov_bundle)
+
+    return document
+

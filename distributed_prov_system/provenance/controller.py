@@ -2,7 +2,7 @@ import base64
 import json
 
 from .models import Document, Entity, Bundle, Token, Organization, TrustedParty, DefaultTrustedParty
-from prov2neomodel.neomodel2prov import convert_to_prov
+from prov2neomodel.neomodel2prov import convert_meta_to_prov, convert_connector_table_to_prov
 from prov.model import ProvDocument, ProvBundle
 from base64 import b64decode, b64encode
 from neomodel.exceptions import DoesNotExist
@@ -136,7 +136,16 @@ def get_token(organization_id, graph_id, document):
 
 def get_b64_encoded_meta_provenance(meta_id, requested_format):
     neo_bundle = Bundle.nodes.get(identifier=meta_id)
-    meta_document = convert_to_prov(neo_bundle)
+    meta_document = convert_meta_to_prov(neo_bundle)
+
+    g = meta_document.serialize(format=requested_format)
+
+    return base64.b64encode(g.encode('utf-8')).decode('utf-8')
+
+
+def get_b64_encoded_connector_bundle(connector_id, requested_format):
+    neo_bundle = Bundle.nodes.get(identifier=connector_id)
+    meta_document = convert_connector_table_to_prov(neo_bundle)
 
     g = meta_document.serialize(format=requested_format)
 
@@ -180,7 +189,7 @@ def store_organization(organization_id, client_cert, intermediate_certs, tp_uri=
     org.trusts.connect(tp)
 
 
-def store_connectors(forward_connectors, backward_connectors, source_bundle, source_meta):
+def store_connectors(forward_connectors, backward_connectors, source_bundle, source_meta, organization_id):
     for connector in forward_connectors:
         try:
             conn_bundle = Bundle.nodes.get(identifier=connector.identifier.localpart)
@@ -189,30 +198,33 @@ def store_connectors(forward_connectors, backward_connectors, source_bundle, sou
             conn_bundle.identifier = connector.identifier.localpart
             conn_bundle.save()
 
-        e = Entity()
-        e.identifier = source_bundle
-        e.attributes = {"prov:type": "cpm:forwardConnectorBundle", "cpm:metabundle": source_meta}
-        e.save()
+        try:
+            Entity.nodes.get(identifier=f"{organization_id}_{source_bundle}_fc")
+        except DoesNotExist:
+            e = Entity()
+            e.identifier = f"{organization_id}_{source_bundle}_fc"
+            e.attributes = {"prov:type": "cpm:forwardConnectorBundle", "cpm:metabundle": "meta:" + source_meta}
+            e.save()
 
-        conn_bundle.contains.connect(e)
+            conn_bundle.contains.connect(e)
 
     for connector in backward_connectors:
         conn_bundle = Bundle.nodes.get(identifier=connector.identifier.localpart)
 
         e = Entity()
-        e.identifier = source_bundle
-        e.attributes = {"prov:type": "cpm:backwardConnectorBundle", "cpm:metabundle": source_meta}
+        e.identifier = f"{organization_id}_{source_bundle}_bc"
+        e.attributes = {"prov:type": "cpm:backwardConnectorBundle", "cpm:metabundle": "meta:" + source_meta}
         e.save()
 
         conn_bundle.contains.connect(e)
 
         destination_bundle = None
         for key, value in connector.attributes:
-            if key.localpart == "receiverBundleId":
+            if key.localpart == "senderBundleId":
                 destination_bundle = value
                 break
 
-        forward_conn = conn_bundle.contains.get(identifier=destination_bundle.localpart)
+        forward_conn = conn_bundle.contains.get(identifier=f"{organization_id}_{destination_bundle.localpart}_fc")
         e.was_derived_from.connect(forward_conn)
 
 

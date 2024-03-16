@@ -93,6 +93,7 @@ class Entity(BaseProvClass):
 
     was_derived_from = RelationshipTo('Entity', 'was_derived_from', model=WasDerivedFrom)
 
+
     was_invalidated_by = RelationshipTo('Activity', 'was_invalidated_by', model=WasInvalidatedBy)
     was_invalidated_by_fake = RelationshipTo('FakeActivity', 'was_invalidated_by', model=WasInvalidatedBy)
 
@@ -133,6 +134,13 @@ class Bundle(BaseProvClass):
     contains = RelationshipTo('BaseProvClass', 'contains')
     pass
 
+
+class ForwardConnector(Entity):
+    pass
+
+
+class BackwardConnector(Entity):
+    pass
 
 ### NON-PROV Models ###
 class Document(StructuredNode):
