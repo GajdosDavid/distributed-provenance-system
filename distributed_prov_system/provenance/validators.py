@@ -155,7 +155,7 @@ class InputGraphChecker:
 
         self._prov_bundle = list(self._prov_document.bundles)[0]
         self._main_activity = self._retrieve_main_activity()
-        self._meta_provenance_id = self._check_resolvability_and_retrieve_activity_id()
+        self._meta_provenance_id = self._check_resolvability_and_retrieve_meta_id()
         self._forward_connectors, self._backward_connectors = self._retrieve_connectors_from_graph()
 
     def check_ids_match(self, graph_id):
@@ -232,8 +232,17 @@ class InputGraphChecker:
 
         return resp
 
-    def _check_resolvability_and_retrieve_activity_id(self):
-        resp = requests.get(self._main_activity.identifier.uri)
+    def _check_resolvability_and_retrieve_meta_id(self):
+        meta_pid = None
+        attrs = self._main_activity.attributes
+        for (key, value) in self._main_activity.attributes:
+            if str(key) == 'cpm:metabundle':
+                meta_pid = value
+
+        if meta_pid is None:
+            raise DocumentError(f"MainActivity missing required attributes 'cpm:metabundle'.")
+
+        resp = requests.get(meta_pid.uri)
         parsed_url = urlparse(resp.url)
         ip = parsed_url.netloc.split(':')[0]
 
