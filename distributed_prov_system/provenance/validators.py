@@ -90,15 +90,15 @@ def check_graph_id_belongs_to_meta(meta_provenance_id, graph_id, organization_id
         raise DocumentError(f"Meta provenance with id [{meta_provenance_id}] does not exist!")
 
     if len(list(entity_traversal.all())) != 0:
-        raise DocumentError(f"Graph with given id={graph_id} is not the latest version."
+        raise DocumentError(f"Graph with given id [{graph_id}] is not the latest version."
                             f" CPM does not allow version forks.")
 
     meta_bundle = list(entity.contains.all())
     assert len(meta_bundle) == 1, "Entity cannot be part of more than one meta bundles"
 
     if meta_bundle[0].identifier != meta_provenance_id:
-        raise DocumentError(f"Graph with id={graph_id} is part of meta bundle with id={meta_bundle[0].identifier},"
-                            f" however main_activity from given bundle is resolvable to different id={meta_provenance_id}")
+        raise DocumentError(f"Graph with id [{graph_id}] is part of meta bundle with id [{meta_bundle[0].identifier}],"
+                            f" however main_activity from given bundle is resolvable to different id [{meta_provenance_id}]")
 
 
 def send_signature_verification_request(payload, organization_id):
@@ -160,8 +160,8 @@ class InputGraphChecker:
 
     def check_ids_match(self, graph_id):
         if self._prov_bundle.identifier.localpart != graph_id:
-            raise DocumentError(f'The bundle id={self._prov_bundle.identifier.localpart} does not match the '
-                                f'specified id={graph_id} from query.')
+            raise DocumentError(f'The bundle id [{self._prov_bundle.identifier.localpart}] does not match the '
+                                f'specified id [{graph_id}] from query.')
 
     def validate_graph(self):
         assert self._prov_document is not None and self._prov_bundle is not None, 'Parse the graph first!'
@@ -173,7 +173,7 @@ class InputGraphChecker:
             raise TooManyBundles('Only one bundle expected in document!')
 
         if not self._is_graph_normalized():
-            raise DocumentError(f'The bundle with id={self._prov_bundle.identifier.localpart} is not normalized.')
+            raise DocumentError(f'The bundle with id [{self._prov_bundle.identifier.localpart}] is not normalized.')
 
         are_resolvable, error_msg = self._are_pids_resolvable()
         if not are_resolvable:
@@ -195,7 +195,7 @@ class InputGraphChecker:
             connector = backward_conns_futures[future]
             resp = future.result()
             if not resp.ok:
-                return False, f'BackwardConnector with id=[{connector.identifier.localpart}] has incorrectly resolvable PID'
+                return False, f'BackwardConnector with id [{connector.identifier.localpart}] has incorrectly resolvable PID'
 
             parsed_url = urlparse(resp.url)
             if self._contains_my_ip_addr(parsed_url):
@@ -207,10 +207,10 @@ class InputGraphChecker:
             parsed_url = urlparse(resp.url)
             if not self._contains_my_ip_addr(parsed_url):
                 if not resp.ok:
-                    return False, f'ForwardConnector with id=[{connector.identifier.localpart}] has incorrectly resolvable PID'
+                    return False, f'ForwardConnector with id [{connector.identifier.localpart}] has incorrectly resolvable PID'
             else:
                 if "/api/v1/connectors/" not in parsed_url.path:
-                    return False, f'ForwardConnector with id=[{connector.identifier.localpart}] has incorrectly resolvable PID'
+                    return False, f'ForwardConnector with id [{connector.identifier.localpart}] has incorrectly resolvable PID'
 
                 self._processed_forward_connectors.append(connector)
 
@@ -256,7 +256,7 @@ class InputGraphChecker:
                                 f"IP address, however it resolved to [{ip}]")
 
         if "/api/v1/graphs/meta/" not in parsed_url.path:
-            raise DocumentError(f"MainActivity PID resolves to incorrect path {parsed_url.path}. "
+            raise DocumentError(f"MainActivity PID resolves to incorrect path [{parsed_url.path}]. "
                                 f"Expected: /api/v1/graphs/meta/")
 
         return parsed_url.path.split('/')[-1]
@@ -274,7 +274,7 @@ class InputGraphChecker:
                 if t.localpart == 'mainActivity':
                     if main_activity is not None:
                         raise DocumentError(f"Multiple 'mainActivity' activities specified inside of bundle "
-                                            f"{self._prov_bundle.identifier.localpart}")
+                                            f"[{self._prov_bundle.identifier.localpart}]")
 
                     main_activity = activity
                     break

@@ -59,7 +59,7 @@ def register_org(request, organization_id):
     expected_json_fields = ('clientCertificate', 'intermediateCertificates')
     for field in expected_json_fields:
         if field not in json_data:
-            return JsonResponse({"error": f"Mandatory field '{field}' not present in request!"}, status=400)
+            return JsonResponse({"error": f"Mandatory field [{field}] not present in request!"}, status=400)
 
     controller.store_organization(organization_id,
                                   json_data['clientCertificate'],
@@ -79,7 +79,7 @@ def modify_org(request, organization_id):
     expected_json_fields = ('clientCertificate', 'intermediateCertificates')
     for field in expected_json_fields:
         if field not in json_data:
-            return JsonResponse({"error": f"Mandatory field '{field}' not present in request!"}, status=400)
+            return JsonResponse({"error": f"Mandatory field [{field}] not present in request!"}, status=400)
 
     controller.modify_organization(organization_id,
                                    json_data['clientCertificate'],
@@ -112,7 +112,7 @@ def store_graph(request, organization_id, graph_id, is_update=False):
     expected_json_fields = ('graph', 'signature', 'graphFormat')
     for field in expected_json_fields:
         if field not in json_data:
-            return JsonResponse({"error": f"Mandatory field '{field}' not present in request!"}, status=400)
+            return JsonResponse({"error": f"Mandatory field [{field}] not present in request!"}, status=400)
 
     validator = InputGraphChecker(json_data['graph'], json_data['graphFormat'])
     try:
@@ -120,19 +120,19 @@ def store_graph(request, organization_id, graph_id, is_update=False):
         if is_update:
             check_graph_id_belongs_to_meta(validator.get_meta_provenance_id(), graph_id, organization_id)
             if not graph_exists(organization_id, graph_id):
-                return JsonResponse({"error": f"Graph with id={graph_id} does not exist. Please check whether the ID"
+                return JsonResponse({"error": f"Graph with id [{graph_id}] does not exist. Please check whether the ID"
                                               f" you have given is correct."}, status=404)
         else:
             validator.check_ids_match(graph_id)
     except DoesNotExist:
         return JsonResponse({"error": f"Graph with id [{graph_id}] does not "
-                                      f"exist under organization [{organization_id}]"}, status=404)
+                                      f"exist under organization [{organization_id}]."}, status=404)
     except DocumentError as e:
         return JsonResponse({"error": str(e)}, status=400)
 
     if graph_exists(organization_id, validator.get_bundle_id()):
-        return JsonResponse({"error": f"Graph with id '{graph_id}' already "
-                                      f"exists under organization '{organization_id}'."}, status=409)
+        return JsonResponse({"error": f"Graph with id [{graph_id}] already "
+                                      f"exists under organization [{organization_id}]."}, status=409)
 
     # TODO -- uncomment once Trusted party is implemented and running
     # resp = send_signature_verification_request(json_data.copy(), organization_id)
@@ -166,7 +166,7 @@ def get_graph(request, organization_id, graph_id):
         t = controller.get_token(organization_id, graph_id, d)
     except DoesNotExist:
         return JsonResponse({"error": f"Graph with id [{graph_id}] does not "
-                                      f"exist under organization [{organization_id}]"}, status=404)
+                                      f"exist under organization [{organization_id}]."}, status=404)
 
     return JsonResponse({"graph": d.graph, "token": t})
 
@@ -183,7 +183,7 @@ def graph_meta(request, meta_id):
     try:
         g = controller.get_b64_encoded_meta_provenance(meta_id, requested_format)
     except DoesNotExist:
-        return JsonResponse({"error": f"The meta-provenance with id [{meta_id}] does not exist"}, status=404)
+        return JsonResponse({"error": f"The meta-provenance with id [{meta_id}] does not exist."}, status=404)
 
     # TODO -- uncomment once TP is up and running
     # if organization_id is not None:
@@ -229,7 +229,7 @@ def get_subgraph(request, organization_id, graph_id, is_domain_specific):
             controller.store_subgraph_into_db(f"{organization_id}_{graph_id}_{suffix}", requested_format, g, t)
         except DoesNotExist:
             return JsonResponse({"error": f"Graph with id [{graph_id}] does not "
-                                          f"exist under organization [{organization_id}]"}, status=404)
+                                          f"exist under organization [{organization_id}]."}, status=404)
 
     return JsonResponse({"graph": g, "token": t})
 
@@ -245,6 +245,6 @@ def connector_retrieve(request, connector_id):
     try:
         g = controller.get_b64_encoded_connector_bundle(connector_id, requested_format)
     except DoesNotExist:
-        return JsonResponse({"error": f"The table for connector with id [{connector_id}] does not exist"}, status=404)
+        return JsonResponse({"error": f"The table for connector with id [{connector_id}] does not exist."}, status=404)
 
     return JsonResponse({"graph": g})
