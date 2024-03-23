@@ -29,9 +29,9 @@ def send_register_request_to_TP(payload, organization_id, is_post=True):
     assert resp.ok, f'Could not register/modify organization with id [{organization_id}], status code={resp.status_code}'
 
 
-def get_dummy_token():
+def get_dummy_token(org_id="MUNI"):
     return {"data": {
-                "originatorId": "MUNI",
+                "originatorId": org_id,
                 "authorityId": "iAmAuthority",
                 "tokenTimestamp": 123,
                 "messageTimestamp": 123,
@@ -151,7 +151,7 @@ def store_graph(request, organization_id, graph_id, is_update=False):
     # TODO -- uncomment once TP is implemented and running
     # tp_url = get_TP_url_by_organization(organization_id)
     # token = controller.send_token_request_to_TP(json_data, tp_url)
-    token = get_dummy_token()
+    token = get_dummy_token(organization_id)
 
     document = validator.get_document()
     import_graph(document, json_data, copy.deepcopy(token), graph_id, validator.get_meta_provenance_id(), is_update)

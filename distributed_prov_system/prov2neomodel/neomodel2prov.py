@@ -143,7 +143,8 @@ def convert_connector_table_to_prov(neo_bundle):
         return connectors
 
     def get_entity_qualified_name(entity: Entity):
-        org, id, _ = entity.identifier.split('_', 2)
+        org, rest = entity.identifier.split('_', 1)
+        id, _ = rest.rsplit('_', 1)
 
         try:
             ns = NAMESPACES[org]

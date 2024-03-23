@@ -199,7 +199,7 @@ def store_connectors(forward_connectors, backward_connectors, source_bundle, sou
             conn_bundle.save()
 
         try:
-            Entity.nodes.get(identifier=f"{organization_id}_{source_bundle}_fc")
+            conn_bundle.contains.get(identifier=f"{organization_id}_{source_bundle}_fc")
         except DoesNotExist:
             e = Entity()
             e.identifier = f"{organization_id}_{source_bundle}_fc"
@@ -224,7 +224,8 @@ def store_connectors(forward_connectors, backward_connectors, source_bundle, sou
                 destination_bundle = value
                 break
 
-        forward_conn = conn_bundle.contains.get(identifier=f"{organization_id}_{destination_bundle.localpart}_fc")
+        forward_conn_set = conn_bundle.contains.filter(identifier__contains=f"{destination_bundle.localpart}_fc")
+        forward_conn = forward_conn_set[0]
         e.was_derived_from.connect(forward_conn)
 
 
