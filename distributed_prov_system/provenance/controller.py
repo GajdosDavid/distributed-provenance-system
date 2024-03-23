@@ -88,7 +88,7 @@ def store_token_into_db(token, document_id=None, neo_document=None):
 
 def get_b64_encoded_subgraph(organization_id, graph_id, is_domain_specific=True, format='rdf'):
     d = Document.nodes.get(identifier=f"{organization_id}_{graph_id}")
-    prov_subgraph = retrieve_subgraph(b64decode(d.graph), is_domain_specific)
+    prov_subgraph = retrieve_subgraph(b64decode(d.graph), d.format, is_domain_specific)
     subgraph = prov_subgraph.serialize(format=format).encode('utf-8')
 
     return b64encode(subgraph).decode('utf-8')
@@ -152,8 +152,8 @@ def get_b64_encoded_connector_bundle(connector_id, requested_format):
     return base64.b64encode(g.encode('utf-8')).decode('utf-8')
 
 
-def retrieve_subgraph(graph, is_domain_specific=True):
-    document = ProvDocument.deserialize(content=graph, format='rdf')
+def retrieve_subgraph(graph, graph_format, is_domain_specific=True):
+    document = ProvDocument.deserialize(content=graph, format=graph_format)
     bundle = None
     for b in document.bundles:
         bundle = b

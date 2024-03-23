@@ -214,10 +214,8 @@ def get_subgraph(request, organization_id, graph_id, is_domain_specific):
     if requested_format not in ('rdf', 'json', 'xml', 'provn'):
         return JsonResponse({"error": f"Requested format [{requested_format}] is not supported!"}, status=400)
 
-    found_in_db = False
     try:
         g, t = controller.query_db_for_subgraph(organization_id, graph_id, requested_format, is_domain_specific)
-        found_in_db = True
     except DoesNotExist:
         try:
             g = controller.get_b64_encoded_subgraph(organization_id, graph_id, is_domain_specific, requested_format)
@@ -226,13 +224,12 @@ def get_subgraph(request, organization_id, graph_id, is_domain_specific):
             # tp_url = get_TP_url_by_organization(organization_id)
             # t = controller.send_token_request_to_TP({"graph": g}, tp_url)
             t = get_dummy_token()
+
+            suffix = "domain" if is_domain_specific else "backbone"
+            controller.store_subgraph_into_db(f"{organization_id}_{graph_id}_{suffix}", requested_format, g, t)
         except DoesNotExist:
             return JsonResponse({"error": f"Graph with id [{graph_id}] does not "
                                           f"exist under organization [{organization_id}]"}, status=404)
-
-    if not found_in_db:
-        suffix = "domain" if is_domain_specific else "backbone"
-        controller.store_subgraph_into_db(f"{organization_id}_{graph_id}_{suffix}", requested_format, g, t)
 
     return JsonResponse({"graph": g, "token": t})
 
