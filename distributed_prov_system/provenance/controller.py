@@ -5,6 +5,7 @@ from .models import Document, Entity, Bundle, Token, Organization, TrustedParty,
 from prov2neomodel.neomodel2prov import convert_meta_to_prov, convert_connector_table_to_prov
 from prov.model import ProvDocument, ProvBundle
 from base64 import b64decode, b64encode
+from neomodel.match import Traversal, INCOMING
 from neomodel.exceptions import DoesNotExist
 from neomodel import db
 from distributed_prov_system.settings import config
@@ -201,9 +202,30 @@ def store_connectors(forward_connectors, backward_connectors, source_bundle, sou
         try:
             conn_bundle.contains.get(identifier=f"{organization_id}_{source_bundle}_fc")
         except DoesNotExist:
+            receiver_bundle_id = None
+            for key, value in connector.attributes:
+                if key.localpart == "receiverBundleId":
+                    receiver_bundle_id = value
+                    break
+
+            attrs = {"prov:type": "cpm:forwardConnector"}
+            if receiver_bundle_id is not None:
+                try:
+                    ent = Entity.nodes.get(identifier__contains=f"{receiver_bundle_id.localpart}")
+
+                    attrs["cpm:receiverBundleId"] = str(receiver_bundle_id)
+                    definition = dict(node_class=Bundle, direction=INCOMING,
+                                      relation_type="contains", model=None)
+                    traversal = Traversal(ent, Bundle.__label__, definition)
+                    meta = traversal.all()[0]
+
+                    attrs["cpm:metabundle"] = "meta:" + meta.identifier
+                except DoesNotExist:
+                    pass
+
             e = Entity()
             e.identifier = f"{organization_id}_{source_bundle}_fc"
-            e.attributes = {"prov:type": "cpm:forwardConnectorBundle", "cpm:metabundle": "meta:" + source_meta}
+            e.attributes = attrs
             e.save()
 
             conn_bundle.contains.connect(e)
@@ -211,22 +233,37 @@ def store_connectors(forward_connectors, backward_connectors, source_bundle, sou
     for connector in backward_connectors:
         conn_bundle = Bundle.nodes.get(identifier=connector.identifier.localpart)
 
+        sender_bundle_id = None
+        for key, value in connector.attributes:
+            if key.localpart == "senderBundleId":
+                sender_bundle_id = value
+                break
+
+        assert sender_bundle_id is not None
+
+        ent = Entity.nodes.get(identifier__contains=f"_{sender_bundle_id.localpart}_gen")
+        definition = dict(node_class=Bundle, direction=INCOMING,
+                          relation_type="contains", model=None)
+        traversal = Traversal(ent, Bundle.__label__, definition)
+        meta = traversal.all()[0]
+
+        attrs = {"prov:type": "cpm:backwardConnector",
+                 "cpm:senderBundleId": str(sender_bundle_id),
+                 "cpm:metabundle": "meta:" + meta.identifier}
+
         e = Entity()
         e.identifier = f"{organization_id}_{source_bundle}_bc"
-        e.attributes = {"prov:type": "cpm:backwardConnectorBundle", "cpm:metabundle": "meta:" + source_meta}
+        e.attributes = attrs
         e.save()
 
         conn_bundle.contains.connect(e)
 
-        destination_bundle = None
-        for key, value in connector.attributes:
-            if key.localpart == "senderBundleId":
-                destination_bundle = value
-                break
-
-        forward_conn_set = conn_bundle.contains.filter(identifier__contains=f"{destination_bundle.localpart}_fc")
-        forward_conn = forward_conn_set[0]
-        e.was_derived_from.connect(forward_conn)
+        forward_conn = conn_bundle.contains.get(identifier__contains=f"_{sender_bundle_id.localpart}_fc")
+        attrs = forward_conn.attributes
+        attrs["cpm:receiverBundleId"] = f"{organization_id}:{source_bundle}"
+        attrs["cpm:metabundle"] = "meta:" + source_meta
+        forward_conn.attributes = attrs
+        forward_conn.save()
 
 
 def modify_organization(organization_id, client_cert, intermediate_certs, tp_uri=None):

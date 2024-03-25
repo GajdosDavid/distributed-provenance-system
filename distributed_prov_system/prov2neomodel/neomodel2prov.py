@@ -132,15 +132,7 @@ def add_version_chain_to_bundle(bundle: ProvBundle, gen_entity: Entity):
 
 
 def convert_connector_table_to_prov(neo_bundle):
-    def get_forward_connectors(bundle):
-        connectors = []
-
-        for conn in bundle.contains.all():
-            for key, value in conn.attributes.items():
-                if key == 'prov:type' and value == 'cpm:forwardConnectorBundle':
-                    connectors.append(conn)
-
-        return connectors
+    namespaces = set()
 
     def get_entity_qualified_name(entity: Entity):
         org, rest = entity.identifier.split('_', 1)
@@ -152,27 +144,19 @@ def convert_connector_table_to_prov(neo_bundle):
             ns = Namespace(org, config.fqdn + f"/api/v1/organizations/{org}/graphs/")
             NAMESPACES[org] = ns
 
+        namespaces.add(ns)
+
         return QualifiedName(ns, id)
 
-    document = ProvDocument(namespaces=[NAMESPACES['connectors']])
-    prov_bundle = ProvBundle(identifier=QualifiedName(NAMESPACES['connectors'], neo_bundle.identifier),
-                             namespaces=[NAMESPACES['meta']])
+    document = ProvDocument(namespaces=[NAMESPACES['connectors'], NAMESPACES['meta']])
+    entity_id = QualifiedName(NAMESPACES['connectors'], neo_bundle.identifier)
 
-    for forward_conn in get_forward_connectors(neo_bundle):
-        forward_conn_entity = ProvEntity(prov_bundle, get_entity_qualified_name(forward_conn),
-                                         attributes=convert_attributes_to_dict(forward_conn))
-        prov_bundle.add_record(forward_conn_entity)
+    for conn in neo_bundle.contains.all():
+        get_entity_qualified_name(conn)
+        document.entity(entity_id, convert_attributes_to_dict(conn))
 
-        definition = dict(node_class=Entity, direction=INCOMING,
-                          relation_type="was_derived_from", model=None)
-        traversal = Traversal(forward_conn, Entity.__label__, definition)
-        for backward_conn in traversal.all():
-            backward_conn_entity = ProvEntity(prov_bundle, get_entity_qualified_name(backward_conn),
-                                              attributes=convert_attributes_to_dict(backward_conn))
-            prov_bundle.add_record(backward_conn_entity)
-            backward_conn_entity.wasDerivedFrom(forward_conn_entity)
-
-    document.add_bundle(prov_bundle)
+    for ns in namespaces:
+        document.add_namespace(ns)
 
     return document
 
