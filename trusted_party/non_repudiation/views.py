@@ -1,12 +1,16 @@
 from django.http import HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods, require_GET
+from trusted_party.settings import config
 
 
 @csrf_exempt
 @require_GET
 def info(request):
-    pass
+    return JsonResponse({
+        "id": config.id,
+        "certificate": config.cert
+    })
 
 
 @csrf_exempt
@@ -48,12 +52,6 @@ def store_cert_for_verification(request, org_id):
 @require_http_methods(["GET", "DELETE"])
 def specific_cert(request, org_id, cert_id):
     return JsonResponse({"hello": "world"})
-
-
-@csrf_exempt
-@require_GET
-def own_certs(request):
-    pass
 
 
 @csrf_exempt
