@@ -12,12 +12,12 @@ class Certificate(models.Model):
     received_on = models.DateTimeField()
     confirmed_on = models.DateTimeField()
 
-    superior_cert = models.ForeignKey('self', on_delete=models.RESTRICT, default=None)
+    superior_cert = models.ForeignKey('self', on_delete=models.RESTRICT, default=None, null=True)
 
 
 class Organization(models.Model):
-    certificate_id = models.ForeignKey(Certificate, on_delete=models.RESTRICT)
-    org_name = models.CharField(max_length=40)
+    org_name = models.CharField(max_length=40, primary_key=True)
+    certificates = models.ManyToManyField(Certificate)
 
 
 class Document(models.Model):

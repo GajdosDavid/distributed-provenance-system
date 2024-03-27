@@ -1,7 +1,10 @@
-from django.http import HttpResponse, JsonResponse
+from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods, require_GET
 from trusted_party.settings import config
+from django.core.exceptions import ObjectDoesNotExist
+from . import controller
+import json
 
 
 @csrf_exempt
@@ -16,32 +19,36 @@ def info(request):
 @csrf_exempt
 @require_GET
 def organizations(request):
-    retrieve_organizations(request)
-
-    return JsonResponse({"hello": "world"})
-
-
-def retrieve_organizations(request):
-    pass
+    return JsonResponse(controller.retrieve_organizations(), safe=False)
 
 
 @csrf_exempt
 @require_GET
 def retrieve_organization(request, org_id):
-    pass
+    try:
+        org = controller.retrieve_organization(org_id)
+    except ObjectDoesNotExist:
+        return JsonResponse({"error": f"Organization with id [{org_id}] does not exist!"}, status=404)
+
+    return JsonResponse(org)
 
 
 @csrf_exempt
 @require_http_methods(["GET", "POST"])
 def certs(request, org_id):
     if request.method == "GET":
-        retrieve_all_certs(request, org_id)
+        return retrieve_all_certs(request, org_id)
     else:
-        store_cert_for_verification(request, org_id)
+        return store_cert_for_verification(request, org_id)
 
 
 def retrieve_all_certs(request, org_id):
-    pass
+    try:
+        org = controller.retrieve_organization(org_id, True)
+    except ObjectDoesNotExist:
+        return JsonResponse({"error": f"Organization with id [{org_id}] does not exist!"}, status=404)
+
+    return JsonResponse(org)
 
 
 def store_cert_for_verification(request, org_id):
