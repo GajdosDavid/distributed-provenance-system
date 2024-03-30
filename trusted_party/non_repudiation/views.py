@@ -110,6 +110,47 @@ def update_certificate(request, org_id):
 
 @csrf_exempt
 @require_GET
+def retrieve_document(request, org_id, doc_id):
+    try:
+        doc = controller.retrieve_document(org_id, doc_id)
+    except ObjectDoesNotExist:
+        return JsonResponse({"error": f"No document wih id [{doc_id}] exists for organization [{org_id}]"}, status=404)
+
+    return JsonResponse({"graph": doc.document_text, "signature": doc.signature})
+
+
+@csrf_exempt
+@require_GET
+def retrieve_all_tokens(request, org_id):
+    try:
+        tokens = controller.retrieve_tokens(org_id)
+    except ObjectDoesNotExist:
+        return JsonResponse({"error": f"Organization with id [{org_id}] does not exist!"}, status=404)
+
+    if len(tokens) == 0:
+        return JsonResponse({"error": f"No tokens have been issued for organization with id [{org_id}]"}, status=404)
+
+    return JsonResponse(tokens, safe=True)
+
+
+@csrf_exempt
+@require_GET
+def specific_token(request, org_id, doc_id):
+    try:
+        Organization.objects.get(org_name=org_id)
+    except ObjectDoesNotExist:
+        return JsonResponse({"error": f"Organization with id [{org_id}] does not exist!"})
+
+    try:
+        token = controller.retrieve_specific_token(org_id, doc_id)
+    except ObjectDoesNotExist:
+        return JsonResponse({"error": f"No document found with id [{doc_id}] under organization [{org_id}]!"}, status=404)
+
+    return JsonResponse(token, safe=True)
+
+
+@csrf_exempt
+@require_GET
 def issue_token(request):
     pass
 
@@ -117,22 +158,4 @@ def issue_token(request):
 @csrf_exempt
 @require_GET
 def verify_signature(request):
-    pass
-
-
-@csrf_exempt
-@require_GET
-def retrieve_document(request, org_id, doc_id):
-    pass
-
-
-@csrf_exempt
-@require_GET
-def retrieve_all_tokens(request, org_id):
-    pass
-
-
-@csrf_exempt
-@require_GET
-def retrieve_token(request, org_id, token_id):
     pass

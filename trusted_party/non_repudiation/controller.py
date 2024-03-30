@@ -1,8 +1,9 @@
-from .models import Organization, Certificate
+from .models import Organization, Certificate, Document, Token
 from OpenSSL import crypto
 from trusted_party.settings import config
 from datetime import datetime
 from django.core.exceptions import ObjectDoesNotExist
+import base64
 
 
 def retrieve_organizations():
@@ -135,3 +136,58 @@ def revoke_all_stored_certificates(org_id):
         if not cert.is_revoked:
             cert.is_revoked = True
             cert.save()
+
+
+def retrieve_document(org_id, doc_id):
+    org = Organization.objects.filter(org_name=org_id)
+    doc = Document.objects.filter(organization_id=org, document_id=doc_id)
+
+    return doc
+
+
+def retrieve_tokens(org_id):
+    org = Organization.objects.filter(org_name=org_id).first()
+    docs = Document.objects.filter(organization_id=org).all()
+
+    tokens = {}
+    for doc in docs:
+        tokens[doc] = Token.objects.filter(document_id=doc).all()
+
+    tokens_out = []
+    for doc, tokens in tokens:
+        for token in tokens:
+            t = {
+                "data": {
+                    "originatorId": org.org_name,
+                    "authorityId": config.id,
+                    "tokenTimestamp": token.created_on,
+                    "messageTimestamp": doc.created_on,
+                    "graphImprint": token.hash
+                },
+                "signature": base64.b64encode(token.signature).decode('utf-8')
+            }
+            tokens_out.append(t)
+
+    return tokens_out
+
+
+def retrieve_specific_token(org_id, doc_id):
+    org = Organization.objects.filter(org_name=org_id).first()
+    doc = Document.objects.filter(organization_id=org, document_id=doc_id).first()
+    tokens = Token.objects.filter(document_id=doc).all()
+
+    tokens_out = []
+    for token in tokens:
+        t = {
+            "data": {
+                "originatorId": org.org_name,
+                "authorityId": config.id,
+                "tokenTimestamp": token.created_on,
+                "messageTimestamp": doc.created_on,
+                "graphImprint": token.hash
+            },
+            "signature": base64.b64encode(token.signature).decode('utf-8')
+        }
+        tokens_out.append(t)
+
+    return tokens_out if len(tokens_out) > 1 else tokens_out[0]

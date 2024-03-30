@@ -18,6 +18,7 @@ class Certificate(models.Model):
 
 
 class Document(models.Model):
+    document_id = models.CharField(primary_key=True)
     certificate_id = models.ForeignKey(Certificate, on_delete=models.RESTRICT)
     organization_id = models.ForeignKey(Organization, on_delete=models.RESTRICT)
     document_text = models.TextField()
