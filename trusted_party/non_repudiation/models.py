@@ -8,6 +8,7 @@ class Organization(models.Model):
 class Certificate(models.Model):
     CERTIFICATE_TYPES = [("root", "root"), ("intermediate", "intermediate"), ("client", "client")]
 
+    cert_digest = models.CharField(max_length=64, primary_key=True)
     cert = models.TextField()
     certificate_type = models.CharField(max_length=20, choices=CERTIFICATE_TYPES)
     is_revoked = models.BooleanField(default=False)

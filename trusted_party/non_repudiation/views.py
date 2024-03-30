@@ -64,7 +64,7 @@ def store_cert(request, org_id):
         except X509StoreContextError:
             return JsonResponse({"error": f"Could not verify the chain of trust!"}, status=401)
 
-    controller.store_organization(json_data)
+    controller.store_organization(org_id, json_data['clientCertificate'], json_data['intermediateCerts'])
 
     return HttpResponse(status=201)
 
@@ -75,7 +75,7 @@ def certs(request, org_id):
     if request.method == "GET":
         return retrieve_all_certs(request, org_id)
     else:
-        pass
+        return update_certificate(request, org_id)
 
 
 def retrieve_all_certs(request, org_id):
@@ -87,9 +87,36 @@ def retrieve_all_certs(request, org_id):
     return JsonResponse(org)
 
 
+def update_certificate(request, org_id):
+    json_data = json.loads(request.body)
+
+    expected_json_fields = ('clientCertificate', 'intermediateCerts')
+    for field in expected_json_fields:
+        if field not in json_data:
+            return JsonResponse({"error": f"Mandatory field [{field}] not present in request!"}, status=400)
+
+    try:
+        Organization.objects.get(org_name=org_id)
+        controller.verify_chain_of_trust(json_data['clientCertificate'], json_data['intermediateCerts'])
+    except ObjectDoesNotExist:
+        return JsonResponse({"error": f"Organization with id [{org_id}] does not exist!"})
+    except X509StoreContextError:
+        return JsonResponse({"error": f"Could not verify the chain of trust!"}, status=401)
+
+    controller.update_certificate(org_id, json_data['clientCertificate'], json_data['intermediateCerts'])
+
+    return HttpResponse(status=201)
+
+
 @csrf_exempt
 @require_GET
 def issue_token(request):
+    pass
+
+
+@csrf_exempt
+@require_GET
+def verify_signature(request):
     pass
 
 
