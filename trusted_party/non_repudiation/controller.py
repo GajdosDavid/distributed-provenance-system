@@ -4,6 +4,11 @@ from trusted_party.settings import config
 from datetime import datetime
 from django.core.exceptions import ObjectDoesNotExist
 import base64
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives import hashes
+from cryptography.x509 import load_pem_x509_certificate
+from cryptography.hazmat.primitives.asymmetric import padding
 
 
 def retrieve_organizations():
@@ -191,3 +196,23 @@ def retrieve_specific_token(org_id, doc_id):
         tokens_out.append(t)
 
     return tokens_out if len(tokens_out) > 1 else tokens_out[0]
+
+
+def verify_signature(json_data):
+    org_id = json_data['organizationId']
+    graph = json_data['graph']
+    signature = json_data['signature']
+
+    org = Organization.objects.filter(org_name=org_id).first()
+    cert = Certificate.objects.filter(organization=org, is_revoked=False).first()
+
+    loaded_cert = load_pem_x509_certificate(cert.cert.encode('utf-8'), backend=default_backend())
+    public_key = loaded_cert.public_key()
+
+    public_key.verify(
+        base64.b64decode(signature),
+        base64.b64decode(graph),
+        padding.PKCS1v15(),
+        hashes.SHA256()
+    )
+    

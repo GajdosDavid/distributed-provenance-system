@@ -102,7 +102,7 @@ def check_graph_id_belongs_to_meta(meta_provenance_id, graph_id, organization_id
 
 
 def send_signature_verification_request(payload, organization_id):
-    url = 'http://' + config.tp_fqdn + '/verify'
+    url = 'http://' + config.tp_fqdn + '/verifySignature'
 
     payload['organizationId'] = organization_id
     resp = requests.post(url, payload)
