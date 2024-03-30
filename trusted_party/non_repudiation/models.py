@@ -1,23 +1,19 @@
 from django.db import models
 
 
-class Certificate(models.Model):
-    CERTIFICATE_TYPES = [("root", "root"), ("intermediate", "intermediate"), ("leaf", "leaf")]
-
-    cert_id = models.CharField(max_length=40, primary_key=True)
-    cert = models.TextField()
-    certificate_type = models.CharField(max_length=20, choices=CERTIFICATE_TYPES)
-    is_verified = models.BooleanField(default=False)
-    is_revoked = models.BooleanField(default=False)
-    received_on = models.DateTimeField()
-    confirmed_on = models.DateTimeField()
-
-    superior_cert = models.ForeignKey('self', on_delete=models.RESTRICT, default=None, null=True)
-
-
 class Organization(models.Model):
     org_name = models.CharField(max_length=40, primary_key=True)
-    certificates = models.ManyToManyField(Certificate)
+
+
+class Certificate(models.Model):
+    CERTIFICATE_TYPES = [("root", "root"), ("intermediate", "intermediate"), ("client", "client")]
+
+    cert = models.TextField()
+    certificate_type = models.CharField(max_length=20, choices=CERTIFICATE_TYPES)
+    is_revoked = models.BooleanField(default=False)
+    received_on = models.DateTimeField()
+
+    organization = models.ForeignKey(Organization, on_delete=models.RESTRICT, default=None, null=True)
 
 
 class Document(models.Model):
