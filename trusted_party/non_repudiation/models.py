@@ -12,7 +12,7 @@ class Certificate(models.Model):
     cert = models.TextField()
     certificate_type = models.CharField(max_length=20, choices=CERTIFICATE_TYPES)
     is_revoked = models.BooleanField(default=False)
-    received_on = models.DateTimeField()
+    received_on = models.IntegerField()
 
     organization = models.ForeignKey(Organization, on_delete=models.RESTRICT, default=None, null=True, to_field="org_name")
 
@@ -27,8 +27,8 @@ class Document(models.Model):
     organization = models.ForeignKey(Organization, on_delete=models.RESTRICT, to_field="org_name")
     document_type = models.CharField(max_length=20, choices=DOCUMENT_TYPES)
     document_text = models.TextField()
-    created_on = models.DateTimeField()
-    signature = models.BinaryField()
+    created_on = models.IntegerField()
+    signature = models.TextField()
 
 
 class Token(models.Model):
@@ -40,5 +40,5 @@ class Token(models.Model):
     document = models.ForeignKey(Document, on_delete=models.RESTRICT)
     hash = models.CharField(max_length=128)
     hash_function = models.CharField(max_length=15, choices=HASH_FUNCTIONS)
-    created_on = models.DateTimeField()
+    created_on = models.IntegerField()
     signature = models.BinaryField()

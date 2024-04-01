@@ -90,7 +90,7 @@ def store_organization(org_id, client_cert, intermediate_certs):
     c.cert = client_cert
     c.certificate_type = "client"
     c.is_revoked = False
-    c.received_on = datetime.now()
+    c.received_on = int(datetime.now().timestamp())
     c.organization = org
     c.save()
 
@@ -102,7 +102,7 @@ def store_organization(org_id, client_cert, intermediate_certs):
         c.cert = cert
         c.certificate_type = "intermediate"
         c.is_revoked = False
-        c.received_on = datetime.now()
+        c.received_on = int(datetime.now().timestamp())
         c.organization = org
         c.save()
 
@@ -118,7 +118,7 @@ def update_certificate(org_id, client_cert, intermediate_certs):
     c.cert = client_cert
     c.certificate_type = "client"
     c.is_revoked = False
-    c.received_on = datetime.now()
+    c.received_on = int(datetime.now().timestamp())
     c.organization = org
     c.save()
 
@@ -136,7 +136,7 @@ def update_certificate(org_id, client_cert, intermediate_certs):
             c.cert = cert
             c.certificate_type = "intermediate"
             c.is_revoked = False
-            c.received_on = datetime.now()
+            c.received_on = int(datetime.now().timestamp())
             c.organization = org
             c.save()
 
@@ -194,9 +194,9 @@ def retrieve_tokens(org_id):
 
 
 def retrieve_specific_token(org_id, doc_id, doc_type="graph"):
-    org = Organization.objects.filter(org_name=org_id).first()
-    doc = Document.objects.filter(organization=org, document_id=doc_id, document_type=doc_type).first()
-    tokens = Token.objects.filter(document=doc).all()
+    org = Organization.objects.get(org_name=org_id)
+    doc = Document.objects.get(organization=org, document_id=doc_id, document_type=doc_type)
+    tokens = Token.objects.get(document=doc).all()
 
     tokens_out = []
     for token in tokens:
@@ -247,7 +247,7 @@ def get_serialized_token(json_data):
         "data": {
             "originatorId": json_data['organizationId'],
             "authorityId": config.id,
-            "tokenTimestamp": datetime.now(),
+            "tokenTimestamp": int(datetime.now().timestamp()),
             "messageTimestamp": json_data['createdOn'],
             "graphImprint": hash,
             "additionalData": {
@@ -276,7 +276,7 @@ def create_new_token(json_data, doc: Document):
     t.hash_function = "SHA256"
     t.document_id = doc
     t.created_on = serialized_token['data']['tokenTimestamp']
-    t.signature = base64.b64decode(serialized_token['signature'])
+    t.signature = serialized_token['signature']
 
     return serialized_token
 
@@ -310,8 +310,8 @@ def issue_token_and_store_doc(json_data):
 
         d = Document()
         d.document_id = prov_bundle.identifier.localpart
-        d.certificate_id = cert
-        d.organization_id = org
+        d.certificate = cert
+        d.organization = org
         d.document_type = json_data['type']
         d.document_text = json_data['graph']
         d.created_on = json_data['createdOn']
