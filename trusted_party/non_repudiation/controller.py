@@ -158,7 +158,7 @@ def revoke_all_stored_certificates(org_id):
 
 def retrieve_document(org_id, doc_id):
     org = Organization.objects.filter(org_name=org_id)
-    doc = Document.objects.filter(organization=org, document_id=doc_id)
+    doc = Document.objects.filter(organization=org, identifier=doc_id)
 
     return doc
 
@@ -169,7 +169,7 @@ def retrieve_tokens(org_id):
 
     tokens = {}
     for doc in docs:
-        tokens[doc] = Token.objects.filter(document_id=doc).all()
+        tokens[doc] = Token.objects.filter(document=doc).all()
 
     tokens_out = []
     for doc, tokens in tokens:
@@ -186,7 +186,7 @@ def retrieve_tokens(org_id):
                         "trustedPartyUri": config.fqdn
                     }
                 },
-                "signature": base64.b64encode(token.signature).decode('utf-8')
+                "signature": token.signature
             }
             tokens_out.append(t)
 
@@ -195,8 +195,8 @@ def retrieve_tokens(org_id):
 
 def retrieve_specific_token(org_id, doc_id, doc_type="graph"):
     org = Organization.objects.get(org_name=org_id)
-    doc = Document.objects.get(organization=org, document_id=doc_id, document_type=doc_type)
-    tokens = Token.objects.get(document=doc).all()
+    doc = Document.objects.get(organization=org, identifier=doc_id, document_type=doc_type)
+    tokens = Token.objects.filter(document=doc).all()
 
     tokens_out = []
     for token in tokens:
@@ -212,7 +212,7 @@ def retrieve_specific_token(org_id, doc_id, doc_type="graph"):
                     "trustedPartyUri": config.fqdn
                 }
             },
-            "signature": base64.b64encode(token.signature).decode('utf-8')
+            "signature": token.signature
         }
         tokens_out.append(t)
 
@@ -272,11 +272,12 @@ def create_new_token(json_data, doc: Document):
     serialized_token = get_serialized_token(json_data)
 
     t = Token()
-    t.hash = hash
+    t.hash = serialized_token['data']['graphImprint']
     t.hash_function = "SHA256"
-    t.document_id = doc
+    t.document = doc
     t.created_on = serialized_token['data']['tokenTimestamp']
     t.signature = serialized_token['signature']
+    t.save()
 
     return serialized_token
 
@@ -309,7 +310,7 @@ def issue_token_and_store_doc(json_data):
         cert = Certificate.objects.filter(organization=org, is_revoked=False).first()
 
         d = Document()
-        d.document_id = prov_bundle.identifier.localpart
+        d.identifier = prov_bundle.identifier.localpart
         d.certificate = cert
         d.organization = org
         d.document_type = json_data['type']

@@ -163,7 +163,7 @@ def issue_token(request):
             return JsonResponse({"error": f"Mandatory field [{field}] not present in request!"}, status=400)
 
     if json_data['type'] not in ('domain_specific', 'backbone', 'meta', 'graph'):
-        return JsonResponse({"error": f"Incorrect type [{json_data['type']}, must be one of subgraph/meta/graph!"}, status=400)
+        return JsonResponse({"error": f"Incorrect type [{json_data['type']}, must be one of [subgraph|meta|graph]!"}, status=400)
 
     if datetime.datetime.fromtimestamp(json_data['createdOn']) >= datetime.datetime.now():
         return JsonResponse({"error": f"Incorrect timestamp for the document!"}, status=400)

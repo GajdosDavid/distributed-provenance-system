@@ -22,7 +22,7 @@ class Document(models.Model):
                       ("domain_specific", "domain_specific"),
                       ("backbone", "backbone")]
 
-    document_id = models.CharField()
+    identifier = models.CharField()
     certificate = models.ForeignKey(Certificate, on_delete=models.RESTRICT, to_field="cert_digest")
     organization = models.ForeignKey(Organization, on_delete=models.RESTRICT, to_field="org_name")
     document_type = models.CharField(max_length=20, choices=DOCUMENT_TYPES)
@@ -41,4 +41,4 @@ class Token(models.Model):
     hash = models.CharField(max_length=128)
     hash_function = models.CharField(max_length=15, choices=HASH_FUNCTIONS)
     created_on = models.IntegerField()
-    signature = models.BinaryField()
+    signature = models.TextField()
