@@ -1,9 +1,12 @@
+import datetime
+
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods, require_GET, require_POST
 from trusted_party.settings import config
 from django.core.exceptions import ObjectDoesNotExist
 from . import controller
+from .controller import IsNotSubgraph
 from cryptography.exceptions import InvalidSignature
 from OpenSSL.crypto import X509StoreContextError
 from .models import Organization
@@ -153,7 +156,32 @@ def specific_token(request, org_id, doc_id):
 @csrf_exempt
 @require_POST
 def issue_token(request):
-    pass
+    json_data = json.loads(request.body)
+    expected_json_fields = ('organizationId', 'graph', 'signature', 'graphFormat', 'type', 'createdOn')
+    for field in expected_json_fields:
+        if field not in json_data:
+            return JsonResponse({"error": f"Mandatory field [{field}] not present in request!"}, status=400)
+
+    if json_data['type'] not in ('domain_specific', 'backbone', 'meta', 'graph'):
+        return JsonResponse({"error": f"Incorrect type [{json_data['type']}, must be one of subgraph/meta/graph!"}, status=400)
+
+    if datetime.datetime.fromtimestamp(json_data['createdOn']) >= datetime.datetime.now():
+        return JsonResponse({"error": f"Incorrect timestamp for the document!"}, status=400)
+
+    try:
+        Organization.objects.get(org_name=json_data['organizationId'])
+    except ObjectDoesNotExist:
+        return JsonResponse({"error": f"Organization with id [{json_data['organizationId']}] does not exist!"}, status=400)
+
+    try:
+        controller.verify_signature(json_data)
+        token = controller.issue_token_and_store_doc(json_data)
+    except InvalidSignature:
+        return JsonResponse({"error": f"Invalid signature to the graph!"}, status=400)
+    except (ObjectDoesNotExist, IsNotSubgraph) as e:
+        return JsonResponse({"error": str(e)})
+
+    return JsonResponse(token, safe=False)
 
 
 @csrf_exempt

@@ -1,3 +1,5 @@
+import jcs
+
 from .models import Organization, Certificate, Document, Token
 from OpenSSL import crypto
 from trusted_party.settings import config
@@ -9,6 +11,17 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives import hashes
 from cryptography.x509 import load_pem_x509_certificate
 from cryptography.hazmat.primitives.asymmetric import padding
+from prov.model import ProvDocument, ProvBundle
+
+
+private_key = serialization.load_pem_private_key(
+    config.private_key,
+    password=None
+)
+
+
+class IsNotSubgraph(Exception):
+    pass
 
 
 def retrieve_organizations():
@@ -145,14 +158,14 @@ def revoke_all_stored_certificates(org_id):
 
 def retrieve_document(org_id, doc_id):
     org = Organization.objects.filter(org_name=org_id)
-    doc = Document.objects.filter(organization_id=org, document_id=doc_id)
+    doc = Document.objects.filter(organization=org, document_id=doc_id)
 
     return doc
 
 
 def retrieve_tokens(org_id):
     org = Organization.objects.filter(org_name=org_id).first()
-    docs = Document.objects.filter(organization_id=org).all()
+    docs = Document.objects.filter(organization=org).all()
 
     tokens = {}
     for doc in docs:
@@ -167,7 +180,11 @@ def retrieve_tokens(org_id):
                     "authorityId": config.id,
                     "tokenTimestamp": token.created_on,
                     "messageTimestamp": doc.created_on,
-                    "graphImprint": token.hash
+                    "graphImprint": token.hash,
+                    "additionalData": {
+                        "hashFunction": "SHA256",
+                        "trustedPartyUri": config.fqdn
+                    }
                 },
                 "signature": base64.b64encode(token.signature).decode('utf-8')
             }
@@ -176,10 +193,10 @@ def retrieve_tokens(org_id):
     return tokens_out
 
 
-def retrieve_specific_token(org_id, doc_id):
+def retrieve_specific_token(org_id, doc_id, doc_type="graph"):
     org = Organization.objects.filter(org_name=org_id).first()
-    doc = Document.objects.filter(organization_id=org, document_id=doc_id).first()
-    tokens = Token.objects.filter(document_id=doc).all()
+    doc = Document.objects.filter(organization=org, document_id=doc_id, document_type=doc_type).first()
+    tokens = Token.objects.filter(document=doc).all()
 
     tokens_out = []
     for token in tokens:
@@ -189,7 +206,11 @@ def retrieve_specific_token(org_id, doc_id):
                 "authorityId": config.id,
                 "tokenTimestamp": token.created_on,
                 "messageTimestamp": doc.created_on,
-                "graphImprint": token.hash
+                "graphImprint": token.hash,
+                "additionalData": {
+                    "hashFunction": "SHA256",
+                    "trustedPartyUri": config.fqdn
+                }
             },
             "signature": base64.b64encode(token.signature).decode('utf-8')
         }
@@ -215,4 +236,90 @@ def verify_signature(json_data):
         padding.PKCS1v15(),
         hashes.SHA256()
     )
-    
+
+
+def get_serialized_token(json_data):
+    digest = hashes.Hash(hashes.SHA256())
+    digest.update(base64.b64decode(json_data['graph']))
+    hash = digest.finalize().hex()
+
+    serialized_token = {
+        "data": {
+            "originatorId": json_data['organizationId'],
+            "authorityId": config.id,
+            "tokenTimestamp": datetime.now(),
+            "messageTimestamp": json_data['createdOn'],
+            "graphImprint": hash,
+            "additionalData": {
+                "hashFunction": "SHA256",
+                "trustedPartyUri": config.fqdn
+            }
+        }
+    }
+
+    signature = private_key.sign(
+        jcs.canonicalize(serialized_token['data']),
+        padding.PKCS1v15(),
+        hashes.SHA256()
+    )
+
+    serialized_token.update({"signature": base64.b64encode(signature).decode('utf-8')})
+
+    return serialized_token
+
+
+def create_new_token(json_data, doc: Document):
+    serialized_token = get_serialized_token(json_data)
+
+    t = Token()
+    t.hash = hash
+    t.hash_function = "SHA256"
+    t.document_id = doc
+    t.created_on = serialized_token['data']['tokenTimestamp']
+    t.signature = base64.b64decode(serialized_token['signature'])
+
+    return serialized_token
+
+
+def check_is_subgraph(prov_bundle: ProvBundle):
+    # TODO
+    pass
+
+
+def issue_token_and_store_doc(json_data):
+    graph = base64.b64decode(json_data['graph'])
+    prov_document = ProvDocument.deserialize(content=graph, format=json_data['graphFormat'])
+
+    assert len(prov_document.bundles) == 1, 'Only one bundle expected in the document!'
+    prov_bundle = list(prov_document.bundles)[0]
+
+    if json_data['type'] in ('domain_specific', 'backbone'):
+        check_is_subgraph(prov_bundle)
+
+    if json_data['type'] == 'meta':
+        return get_serialized_token(json_data)
+
+    try:
+        tokens = retrieve_specific_token(json_data['organizationId'], prov_bundle.identifier.localpart,
+                                         json_data['type'])
+
+        return tokens
+    except ObjectDoesNotExist:
+        org = Organization.objects.filter(org_name=json_data['organizationId']).first()
+        cert = Certificate.objects.filter(organization=org, is_revoked=False).first()
+
+        d = Document()
+        d.document_id = prov_bundle.identifier.localpart
+        d.certificate_id = cert
+        d.organization_id = org
+        d.document_type = json_data['type']
+        d.document_text = json_data['graph']
+        d.created_on = json_data['createdOn']
+        d.signature = json_data['signature']
+        d.save()
+
+        token = create_new_token(json_data, d)
+
+        return token
+
+

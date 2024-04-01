@@ -30,7 +30,7 @@ class Config:
             self.cert = f.read()
 
         assert os.path.isfile(config['privateKeyPath']), f"PK not found under given path"
-        with open(config['publicCertPath'], 'r') as f:
+        with open(config['privateKeyPath'], 'rb') as f:
             self.private_key = f.read()
 
         assert os.path.isdir(config['trustedCertsDirPath']), f"Trusted certs not found under given path"
