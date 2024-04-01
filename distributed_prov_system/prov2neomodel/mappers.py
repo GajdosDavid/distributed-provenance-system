@@ -214,7 +214,7 @@ class ProvStartMapper(BaseRelMapper):
         self._populate_common_fields(to_populate)
 
         to_populate.time = self._prov_rel.args[self.TIME]
-        to_populate.starter = self._prov_rel.args[self.STARTER]  # TODO Test!!
+        to_populate.starter = self._prov_rel.args[self.STARTER]
 
 
 class ProvEndMapper(BaseRelMapper):
@@ -245,7 +245,7 @@ class ProvEndMapper(BaseRelMapper):
         self._populate_common_fields(to_populate)
 
         to_populate.time = self._prov_rel.args[self.TIME]
-        to_populate.ender = self._prov_rel.args[self.ENDER]  # TODO Test!!
+        to_populate.ender = self._prov_rel.args[self.ENDER]
 
 
 class ProvInvalidationMapper(BaseRelMapper):
@@ -413,8 +413,6 @@ class ProvAlternateMapper(BaseRelMapper):
 
 
 class ProvMentionMapper(BaseRelMapper):
-    # TODO
-
     def save(self):
         pass
 

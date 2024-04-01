@@ -1,4 +1,4 @@
-from neomodel import (StructuredRel, StructuredNode, StringProperty, ArrayProperty, DateTimeProperty,
+from neomodel import (StructuredRel, StructuredNode, StringProperty, ArrayProperty, IntegerProperty,
                       JSONProperty, DateTimeFormatProperty, RelationshipTo, RelationshipFrom, BooleanProperty)
 
 
@@ -156,9 +156,9 @@ class Token(StructuredNode):
     hash = StringProperty()
     originator_id = StringProperty()
     authority_id = StringProperty()
-    token_timestamp = DateTimeFormatProperty(format='%Y-%m-%dT%H:%M:%S')
-    message_timestamp = DateTimeFormatProperty(format='%Y-%m-%dT%H:%M:%S')
-    additional_info = JSONProperty()
+    token_timestamp = IntegerProperty()
+    message_timestamp = IntegerProperty()
+    additional_data = JSONProperty()
 
     belongs_to = RelationshipTo('Document', 'belongs_to')
     was_issued_by = RelationshipTo('TrustedParty', "was_issued_by")

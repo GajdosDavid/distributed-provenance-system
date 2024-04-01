@@ -28,7 +28,7 @@ class Document(models.Model):
     document_type = models.CharField(max_length=20, choices=DOCUMENT_TYPES)
     document_text = models.TextField()
     created_on = models.IntegerField()
-    signature = models.TextField()
+    signature = models.TextField(null=True)
 
 
 class Token(models.Model):

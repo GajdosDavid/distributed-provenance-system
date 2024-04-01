@@ -6,6 +6,7 @@ class Config:
     def __init__(self, config_path):
         self.fqdn = ""
         self.tp_fqdn = ""
+        self.id = ""
 
         self._load_config(config_path)
 
@@ -13,7 +14,7 @@ class Config:
         with open(config_path, 'r') as f:
             config = json.load(f)
 
-        required_config_fields = ("fqdn", "trustedPartyFqdn")
+        required_config_fields = ("fqdn", "trustedPartyFqdn", "id")
         for field in required_config_fields:
             assert field in config, f"{field} missing in config!"
 
@@ -24,3 +25,5 @@ class Config:
         self.tp_fqdn = config['trustedPartyFqdn']
         if self.tp_fqdn[-1] == '/':
             self.tp_fqdn = self.tp_fqdn[:-1]
+
+        self.id = config['id']

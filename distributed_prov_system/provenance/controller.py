@@ -18,10 +18,11 @@ def send_token_request_to_TP(payload, tp_url=None):
     if tp_url is None:
         tp_url = config.tp_fqdn
 
-    url = 'http://' + tp_url + '/issueToken'
-    resp = requests.post(url, payload)
+    url = 'http://' + tp_url + '/api/v1/issueToken'
+    resp = requests.post(url, json.dumps(payload))
 
-    assert resp.ok, f'Could not issue token, status code={resp.status_code}'
+    assert resp.ok, (f'Could not issue token, status code={resp.status_code},'
+                     f'content={resp.content}')
     return json.loads(resp.content)
 
 
@@ -45,7 +46,8 @@ def query_db_for_subgraph(organization_id, graph_id, requested_format, is_domain
             "authorityId": token.authority_id,
             "tokenTimestamp": token.token_timestamp,
             "messageTimestamp": token.message_timestamp,
-            "graphImprint": token.hash
+            "graphImprint": token.hash,
+            "additionalData": token.additional_data
         },
         "signature": token.signature
     }
@@ -71,8 +73,9 @@ def store_token_into_db(token, document_id=None, neo_document=None):
     t.hash = token['data']['graphImprint']
     t.originator_id = token['data']['originatorId']
     t.authority_id = token['data']['authorityId']
-    t.token_timestamp = datetime.fromtimestamp(token['data']['tokenTimestamp'])
-    t.message_timestamp = datetime.fromtimestamp(token['data']['messageTimestamp'])
+    t.token_timestamp = token['data']['tokenTimestamp']
+    t.message_timestamp = token['data']['messageTimestamp']
+    t.additional_data = token['data']['additionalData']
 
     t.save()
 
@@ -130,7 +133,8 @@ def get_token(organization_id, graph_id, document):
         "authorityId": t.authority_id,
         "tokenTimestamp": t.token_timestamp,
         "messageTimestamp": t.message_timestamp,
-        "graphImprint": t.hash
+        "graphImprint": t.hash,
+        "additionalData": t.additional_data
     }
     return {"data": token_data, "signature": t.signature}
 
@@ -280,12 +284,14 @@ def modify_organization(organization_id, client_cert, intermediate_certs, tp_uri
 
 def get_TP(url):
     if url is None:
-        tp = list(DefaultTrustedParty.nodes.all())
-        assert len(tp) == 1
+        default_tp = list(DefaultTrustedParty.nodes.all())
+        assert len(default_tp) == 1
+
+        tp = TrustedParty.nodes.get(identifier=default_tp[0].identifier)
 
         return tp
 
-    resp = requests.get(f'http://{url}/info')
+    resp = requests.get(f'http://{url}/api/v1/info')
 
     assert resp.ok, "Couldn't retrieve info from TP!"
     info = json.loads(resp.content)

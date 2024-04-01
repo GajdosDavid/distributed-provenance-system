@@ -5,6 +5,7 @@ import requests
 import concurrent.futures
 from urllib.parse import urlparse
 import socket
+import json
 
 from .models import Document, Organization, Entity, Bundle, ConnectorTable
 from neomodel.exceptions import DoesNotExist
@@ -50,9 +51,6 @@ def is_org_registered(organization_id) -> bool:
 
 
 def check_organization_is_registered(organization_id):
-    # TODO -- remove
-    return
-
     if not is_org_registered(organization_id):
         raise OrganizationNotRegistered(f"Organization with id [{organization_id}] is not registered! "
                                         f"Please register your organization first.")
@@ -102,10 +100,10 @@ def check_graph_id_belongs_to_meta(meta_provenance_id, graph_id, organization_id
 
 
 def send_signature_verification_request(payload, organization_id):
-    url = 'http://' + config.tp_fqdn + '/verifySignature'
+    url = 'http://' + config.tp_fqdn + '/api/v1/verifySignature'
 
     payload['organizationId'] = organization_id
-    resp = requests.post(url, payload)
+    resp = requests.post(url, json.dumps(payload))
 
     return resp
 

@@ -1,6 +1,6 @@
 {
   "id": "TrustedParty",
-  "fqdn": "127.0.1.1:8000",
+  "fqdn": "127.0.1.1:8020",
   "trustedCertsDirPath": "/home/david/Documents/FI_MUNI/diplomka/PROV/playground/certs/trusted_certs",
   "publicCertPath": "/home/david/Documents/FI_MUNI/diplomka/PROV/playground/certs/root.pem",
   "privateKeyPath": "/home/david/Documents/FI_MUNI/diplomka/PROV/playground/certs/root.key"

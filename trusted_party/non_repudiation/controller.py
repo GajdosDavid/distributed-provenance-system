@@ -316,7 +316,10 @@ def issue_token_and_store_doc(json_data):
         d.document_type = json_data['type']
         d.document_text = json_data['graph']
         d.created_on = json_data['createdOn']
-        d.signature = json_data['signature']
+        if json_data['type'] == 'graph':
+            d.signature = json_data['signature']
+        else:
+            d.signature = None
         d.save()
 
         token = create_new_token(json_data, d)

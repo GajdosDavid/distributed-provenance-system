@@ -50,13 +50,13 @@ def specific_organization(request, org_id):
 def store_cert(request, org_id):
     json_data = json.loads(request.body)
 
-    expected_json_fields = ('id', 'clientCertificate', 'intermediateCerts')
+    expected_json_fields = ('organizationId', 'clientCertificate', 'intermediateCertificates')
     for field in expected_json_fields:
         if field not in json_data:
             return JsonResponse({"error": f"Mandatory field [{field}] not present in request!"}, status=400)
 
-    if org_id != json_data['id']:
-        return JsonResponse({"error": f"Org ID from URI [{org_id}] does not match the one from request [{json_data['id']}]!"}, status=400)
+    if org_id != json_data['organizationId']:
+        return JsonResponse({"error": f"Org ID from URI [{org_id}] does not match the one from request [{json_data['organizationId']}]!"}, status=400)
 
     try:
         Organization.objects.get(org_name=org_id)
@@ -64,11 +64,11 @@ def store_cert(request, org_id):
         return JsonResponse({"error": f"Organization with id [{org_id}] is already registered!"}, status=409)
     except ObjectDoesNotExist:
         try:
-            controller.verify_chain_of_trust(json_data['clientCertificate'], json_data['intermediateCerts'])
+            controller.verify_chain_of_trust(json_data['clientCertificate'], json_data['intermediateCertificates'])
         except X509StoreContextError:
             return JsonResponse({"error": f"Could not verify the chain of trust!"}, status=401)
 
-    controller.store_organization(org_id, json_data['clientCertificate'], json_data['intermediateCerts'])
+    controller.store_organization(org_id, json_data['clientCertificate'], json_data['intermediateCertificates'])
 
     return HttpResponse(status=201)
 
@@ -94,20 +94,20 @@ def retrieve_all_certs(request, org_id):
 def update_certificate(request, org_id):
     json_data = json.loads(request.body)
 
-    expected_json_fields = ('clientCertificate', 'intermediateCerts')
+    expected_json_fields = ('clientCertificate', 'intermediateCertificates')
     for field in expected_json_fields:
         if field not in json_data:
             return JsonResponse({"error": f"Mandatory field [{field}] not present in request!"}, status=400)
 
     try:
         Organization.objects.get(org_name=org_id)
-        controller.verify_chain_of_trust(json_data['clientCertificate'], json_data['intermediateCerts'])
+        controller.verify_chain_of_trust(json_data['clientCertificate'], json_data['intermediateCertificates'])
     except ObjectDoesNotExist:
         return JsonResponse({"error": f"Organization with id [{org_id}] does not exist!"})
     except X509StoreContextError:
         return JsonResponse({"error": f"Could not verify the chain of trust!"}, status=401)
 
-    controller.update_certificate(org_id, json_data['clientCertificate'], json_data['intermediateCerts'])
+    controller.update_certificate(org_id, json_data['clientCertificate'], json_data['intermediateCertificates'])
 
     return HttpResponse(status=201)
 
@@ -157,7 +157,7 @@ def specific_token(request, org_id, doc_id):
 @require_POST
 def issue_token(request):
     json_data = json.loads(request.body)
-    expected_json_fields = ('organizationId', 'graph', 'signature', 'graphFormat', 'type', 'createdOn')
+    expected_json_fields = ('organizationId', 'graph', 'graphFormat', 'type', 'createdOn')
     for field in expected_json_fields:
         if field not in json_data:
             return JsonResponse({"error": f"Mandatory field [{field}] not present in request!"}, status=400)
@@ -165,7 +165,11 @@ def issue_token(request):
     if json_data['type'] not in ('domain_specific', 'backbone', 'meta', 'graph'):
         return JsonResponse({"error": f"Incorrect type [{json_data['type']}, must be one of [subgraph|meta|graph]!"}, status=400)
 
-    if datetime.datetime.fromtimestamp(json_data['createdOn']) >= datetime.datetime.now():
+    if json_data['type'] == "graph":
+        if "signature" not in json_data:
+            return JsonResponse({"error": f"Mandatory field [\"signature\"] not present in request!"}, status=400)
+
+    if datetime.datetime.fromtimestamp(json_data['createdOn']) > datetime.datetime.now():
         return JsonResponse({"error": f"Incorrect timestamp for the document!"}, status=400)
 
     try:
@@ -174,7 +178,8 @@ def issue_token(request):
         return JsonResponse({"error": f"Organization with id [{json_data['organizationId']}] does not exist!"}, status=400)
 
     try:
-        controller.verify_signature(json_data)
+        if json_data['type'] == "graph":
+            controller.verify_signature(json_data)
         token = controller.issue_token_and_store_doc(json_data)
     except InvalidSignature:
         return JsonResponse({"error": f"Invalid signature to the graph!"}, status=400)
