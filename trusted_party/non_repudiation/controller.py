@@ -225,7 +225,7 @@ def verify_signature(json_data):
     signature = json_data['signature']
 
     org = Organization.objects.filter(org_name=org_id).first()
-    cert = Certificate.objects.filter(organization=org, is_revoked=False).first()
+    cert = Certificate.objects.filter(organization=org, is_revoked=False, certificate_type="client").first()
 
     loaded_cert = load_pem_x509_certificate(cert.cert.encode('utf-8'), backend=default_backend())
     public_key = loaded_cert.public_key()
@@ -288,20 +288,21 @@ def check_is_subgraph(prov_bundle: ProvBundle):
 
 
 def issue_token_and_store_doc(json_data):
-    graph = base64.b64decode(json_data['graph'])
-    prov_document = ProvDocument.deserialize(content=graph, format=json_data['graphFormat'])
+   # graph = base64.b64decode(json_data['graph'])
+   # prov_document = ProvDocument.deserialize(content=graph, format=json_data['graphFormat'])
 
-    assert len(prov_document.bundles) == 1, 'Only one bundle expected in the document!'
-    prov_bundle = list(prov_document.bundles)[0]
+    #assert len(prov_document.bundles) == 1, 'Only one bundle expected in the document!'
+   # prov_bundle = list(prov_document.bundles)[0]
 
     if json_data['type'] in ('domain_specific', 'backbone'):
-        check_is_subgraph(prov_bundle)
+        pass
+      #  check_is_subgraph(prov_bundle)
 
     if json_data['type'] == 'meta':
         return get_serialized_token(json_data)
 
     try:
-        tokens = retrieve_specific_token(json_data['organizationId'], prov_bundle.identifier.localpart,
+        tokens = retrieve_specific_token(json_data['organizationId'], json_data['graphId'],
                                          json_data['type'])
 
         return tokens
@@ -310,7 +311,7 @@ def issue_token_and_store_doc(json_data):
         cert = Certificate.objects.filter(organization=org, is_revoked=False).first()
 
         d = Document()
-        d.identifier = prov_bundle.identifier.localpart
+        d.identifier = json_data['graphId']
         d.certificate = cert
         d.organization = org
         d.document_type = json_data['type']

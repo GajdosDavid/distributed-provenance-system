@@ -172,10 +172,11 @@ def issue_token(request):
     if datetime.datetime.fromtimestamp(json_data['createdOn']) > datetime.datetime.now():
         return JsonResponse({"error": f"Incorrect timestamp for the document!"}, status=400)
 
-    try:
-        Organization.objects.get(org_name=json_data['organizationId'])
-    except ObjectDoesNotExist:
-        return JsonResponse({"error": f"Organization with id [{json_data['organizationId']}] does not exist!"}, status=400)
+    if json_data['type'] == "graph":
+        try:
+            Organization.objects.get(org_name=json_data['organizationId'])
+        except ObjectDoesNotExist:
+            return JsonResponse({"error": f"Organization with id [{json_data['organizationId']}] does not exist!"}, status=400)
 
     try:
         if json_data['type'] == "graph":

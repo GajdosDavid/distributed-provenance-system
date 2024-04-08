@@ -192,12 +192,15 @@ class InputGraphChecker:
         for future in concurrent.futures.as_completed(backward_conns_futures):
             connector = backward_conns_futures[future]
             resp = future.result()
-            if not resp.ok:
-                return False, f'BackwardConnector with id [{connector.identifier.localpart}] has incorrectly resolvable PID'
-
             parsed_url = urlparse(resp.url)
+            if not resp.ok:
+                if "/api/v1/connectors/" not in parsed_url.path:
+                    return False, f'BackwardConnector with id [{connector.identifier.localpart}] has incorrectly resolvable PID'
+
             if self._contains_my_ip_addr(parsed_url):
-                self._processed_backward_connectors.append(connector)
+                self._processed_backward_connectors.append(('', connector))
+            else:
+                self._processed_backward_connectors.append((parsed_url.netloc, connector))
 
         for future in concurrent.futures.as_completed(forward_conns_futures):
             connector = forward_conns_futures[future]
@@ -257,7 +260,10 @@ class InputGraphChecker:
             raise DocumentError(f"MainActivity PID resolves to incorrect path [{parsed_url.path}]. "
                                 f"Expected: /api/v1/graphs/meta/")
 
-        return parsed_url.path.split('/')[-1]
+        print(parsed_url.path)
+        out = parsed_url.path.split('/')[-1]
+        print(out)
+        return out
 
     def _retrieve_main_activity(self):
         main_activity = None

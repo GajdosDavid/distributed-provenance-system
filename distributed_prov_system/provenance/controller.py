@@ -234,40 +234,34 @@ def store_connectors(forward_connectors, backward_connectors, source_bundle, sou
 
             conn_bundle.contains.connect(e)
 
-    for connector in backward_connectors:
-        conn_bundle = Bundle.nodes.get(identifier=connector.identifier.localpart)
-
+    for (ip, connector) in backward_connectors:
         sender_bundle_id = None
+        #sender_meta_id = None
         for key, value in connector.attributes:
             if key.localpart == "senderBundleId":
-                sender_bundle_id = value
-                break
+                sender_bundle_id = value.localpart
 
-        assert sender_bundle_id is not None
+           # if key.localpart == "metabundle":
+           #     sender_meta_id = value.localpart
 
-        ent = Entity.nodes.get(identifier__contains=f"_{sender_bundle_id.localpart}_gen")
-        definition = dict(node_class=Bundle, direction=INCOMING,
-                          relation_type="contains", model=None)
-        traversal = Traversal(ent, Bundle.__label__, definition)
-        meta = traversal.all()[0]
+        if len(ip) > 0:
+            payload = {"senderBundleId": sender_bundle_id,
+                       "organizationId": organization_id,
+                       "senderMetaId": source_meta,
+                       "sourceBundle": source_bundle}
+            send_store_connector_request_to_remote(ip, payload, connector.identifier.localpart)
+            continue
 
-        attrs = {"prov:type": "cpm:backwardConnector",
-                 "cpm:senderBundleId": str(sender_bundle_id),
-                 "cpm:metabundle": "meta:" + meta.identifier}
+        store_backward_connector(connector.identifier.localpart, sender_bundle_id,
+                                 organization_id, source_bundle, source_meta)
 
-        e = Entity()
-        e.identifier = f"{organization_id}_{source_bundle}_bc"
-        e.attributes = attrs
-        e.save()
 
-        conn_bundle.contains.connect(e)
+def send_store_connector_request_to_remote(ip, payload, connector_id):
+    url = 'http://' + ip + '/api/v1/connectors/' + connector_id
+    resp = requests.post(url, json.dumps(payload))
 
-        forward_conn = conn_bundle.contains.get(identifier__contains=f"_{sender_bundle_id.localpart}_fc")
-        attrs = forward_conn.attributes
-        attrs["cpm:receiverBundleId"] = f"{organization_id}:{source_bundle}"
-        attrs["cpm:metabundle"] = "meta:" + source_meta
-        forward_conn.attributes = attrs
-        forward_conn.save()
+    if not resp.ok:
+        print(f"Couldn't store backward connector at url {url}. Response: {resp.content}")
 
 
 def modify_organization(organization_id, client_cert, intermediate_certs, tp_uri=None):
@@ -316,3 +310,35 @@ def get_TP_url_by_organization(organization_id):
         return trusted_parties[0].url
     except DoesNotExist:
         return None
+
+
+def store_backward_connector(connector_bundle_id, sender_bundle_id, org_id, source_bundle, source_meta):
+    conn_bundle = Bundle.nodes.get(identifier=connector_bundle_id)
+
+    assert sender_bundle_id is not None
+
+    ent = Entity.nodes.get(identifier__contains=f"_{sender_bundle_id}_gen")
+    definition = dict(node_class=Bundle, direction=INCOMING,
+                      relation_type="contains", model=None)
+    traversal = Traversal(ent, Bundle.__label__, definition)
+    meta = traversal.all()[0]
+
+    print(source_meta)
+    sender_bundle_org = ent.identifier.split('_')
+    attrs = {"prov:type": "cpm:backwardConnector",
+             "cpm:senderBundleId": f"{sender_bundle_org[0]}:{sender_bundle_id}",
+             "cpm:metabundle": "meta:" + meta.identifier}
+
+    e = Entity()
+    e.identifier = f"{org_id}_{source_bundle}_bc"
+    e.attributes = attrs
+    e.save()
+
+    conn_bundle.contains.connect(e)
+
+    forward_conn = conn_bundle.contains.get(identifier__contains=f"_{sender_bundle_id}_fc")
+    attrs = forward_conn.attributes
+    attrs["cpm:receiverBundleId"] = f"{org_id}:{source_bundle}"
+    attrs["cpm:metabundle"] = "meta:" + source_meta
+    forward_conn.attributes = attrs
+    forward_conn.save()

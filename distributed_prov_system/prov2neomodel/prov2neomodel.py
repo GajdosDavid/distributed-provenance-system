@@ -80,6 +80,11 @@ def update_meta_prov(graph_id, new_entity_id, token, meta_id):
 def store_token_into_meta(meta_bundle, entity, token):
     token_attributes = dict()
     for key, value in token.items():
+        if key == "additionalData":
+            for k, v in value.items():
+                token_attributes[f"cpm:{k}"] = v
+            continue
+
         token_attributes[f"cpm:{key}"] = value
     token_attributes["prov:type"] = "cpm:token"
 

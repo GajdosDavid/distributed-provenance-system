@@ -27,7 +27,7 @@ def send_register_request_to_TP(payload, organization_id, is_post=True):
     else:
         resp = requests.put(url, json.dumps(payload))
 
-    assert resp.ok, f'Could not register/modify organization with id [{organization_id}], status code={resp.status_code}'
+    return resp
 
 
 @csrf_exempt
@@ -55,7 +55,9 @@ def register_org(request, organization_id):
                                   json_data['intermediateCertificates'],
                                   json_data['TrustedPartyUri'] if 'TrustedPartyUri' in json_data else None)
 
-    send_register_request_to_TP(json_data, organization_id)
+    resp = send_register_request_to_TP(json_data, organization_id)
+    if resp.status_code == 401:
+        return JsonResponse({"error": f"Trusted party was unable to verify certificate chain!"}, status=401)
 
     return HttpResponse(status=201)
 
@@ -75,7 +77,9 @@ def modify_org(request, organization_id):
                                    json_data['intermediateCertificates'],
                                    json_data['TrustedPartyUri'] if 'TrustedPartyUri' in json_data else None)
 
-    send_register_request_to_TP(json_data, organization_id, is_post=False)
+    resp = send_register_request_to_TP(json_data, organization_id, is_post=False)
+    if resp.status_code == 401:
+        return JsonResponse({"error": f"Trusted party was unable to verify certificate chain!"}, status=401)
 
     return HttpResponse(status=201)
 
@@ -140,6 +144,7 @@ def store_graph(request, organization_id, graph_id, is_update=False):
     payload = json_data.copy()
     payload["organizationId"] = organization_id
     payload["type"] = "graph"
+    payload["graphId"] = graph_id
     token = controller.send_token_request_to_TP(payload, tp_url)
 
     document = validator.get_document()
@@ -183,7 +188,8 @@ def graph_meta(request, meta_id):
                "createdOn": int(datetime.datetime.now().timestamp()),
                "type": "meta",
                "organizationId": config.id,
-               "graphFormat": requested_format
+               "graphFormat": requested_format,
+               "graphId": meta_id
                }
     t = controller.send_token_request_to_TP(payload, tp_url)
 
@@ -220,7 +226,8 @@ def get_subgraph(request, organization_id, graph_id, is_domain_specific):
                        "createdOn": int(datetime.datetime.now().timestamp()),
                        "type": "domain_specific" if is_domain_specific else "backbone",
                        "organizationId": organization_id,
-                       "graphFormat": requested_format
+                       "graphFormat": requested_format,
+                       "graphId": graph_id
                        }
             t = controller.send_token_request_to_TP(payload, tp_url)
 
@@ -234,7 +241,14 @@ def get_subgraph(request, organization_id, graph_id, is_domain_specific):
 
 
 @csrf_exempt
-@require_GET
+@require_http_methods(["GET", "POST"])
+def connectors(request, connector_id):
+    if request.method == "GET":
+        return connector_retrieve(request, connector_id)
+    else:
+        return connector_store(request, connector_id)
+
+
 def connector_retrieve(request, connector_id):
     requested_format = request.GET.get('format', 'rdf').lower()
 
@@ -247,3 +261,14 @@ def connector_retrieve(request, connector_id):
         return JsonResponse({"error": f"The table for connector with id [{connector_id}] does not exist."}, status=404)
 
     return JsonResponse({"graph": g})
+
+
+def connector_store(request, connector_id):
+    json_data = json.loads(request.body)
+    expected_json_fields = ('senderBundleId', 'organizationId', 'senderMetaId', 'sourceBundle')
+    for field in expected_json_fields:
+        if field not in json_data:
+            return JsonResponse({"error": f"Mandatory field [{field}] not present in request!"}, status=400)
+
+    controller.store_backward_connector(connector_id, json_data['senderBundleId'], json_data['organizationId'],
+                                        json_data['sourceBundle'], json_data['senderMetaId'])

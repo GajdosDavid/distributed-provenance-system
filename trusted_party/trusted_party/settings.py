@@ -27,7 +27,7 @@ SECRET_KEY = 'django-insecure-b+f4ob68ial8_(o5%h1q-6jc#df(c%c9m1*vs8i=$fn$pzicvg
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ["127.0.1.1"]
+ALLOWED_HOSTS = ['*']
 
 
 # Application definition
@@ -80,8 +80,8 @@ DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
         "OPTIONS": {
-            "service": "my_service", # take secrion form /etc/postgresql-common/pg_service.conf
-            "passfile": ".pgpass", # ~/.pgpass
+            "service": "trusted_party",  # take section from /etc/postgresql-common/pg_service.conf
+            "passfile": ".pgpass",  # ~/.pgpass
         },
     }
 }
