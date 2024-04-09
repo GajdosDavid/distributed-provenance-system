@@ -30,9 +30,24 @@ def send_register_request_to_TP(payload, organization_id, is_post=True):
     return resp
 
 
+def get_dummy_token():
+    return {"data": {
+                "originatorId": "ORG",
+                "authorityId": "TrustedParty",
+                "tokenTimestamp": 0,
+                "messageTimestamp": 0,
+                "graphImprint": "17fd7484d7cac628cfa43c348fe05a009a81d18c8a778e6488b707954addf2a3"
+                },
+            "signature": "bdysXEy2/sOSTN+Lh+v3x7cTdocMcndwuW5OT2wHpQOU/LM4os9Bow0sn4HTln9hRqFdCMukV6Cr6Nn8XvD96jlgEw9KqJj9I+cfBL81x9iqUJX/Wder3lkuIZXYUSeGsOOqUPdlqJAhapgr0V+vibAvPGoiRKqulNi/Xn0jn21lln1HEbHPsnOtM5Ca5wwXuTITJsiXCj+04y9V/XM9Uy9Ib4LLA1VYLCdifjg0ZuxJBcpS/HszlwW9B29rrkUGUsSrV9YU0ViYkeIMcS2bMXsur3EHi3/zSZ5IepUNOBDTu3BDUr33dbrgMOVraI8RU5DTZKmUOx8hzgtApZNotg=="
+            }
+
+
 @csrf_exempt
 @require_http_methods(["POST", "PUT"])
 def register(request, organization_id):
+    if config.disable_tp:
+        return JsonResponse({"info": "The registration is off when TP is disabled!"})
+
     if request.method == 'POST':
         return register_org(request, organization_id)
     else:
@@ -96,13 +111,17 @@ def graph(request, organization_id, graph_id):
 
 
 def store_graph(request, organization_id, graph_id, is_update=False):
-    try:
-        check_organization_is_registered(organization_id)
-    except (InvalidTrustedParty, UncheckedTrustedParty, OrganizationNotRegistered) as e:
-        return JsonResponse({"error": str(e)}, status=404)
+    if not config.disable_tp:
+        try:
+            check_organization_is_registered(organization_id)
+        except (InvalidTrustedParty, UncheckedTrustedParty, OrganizationNotRegistered) as e:
+            return JsonResponse({"error": str(e)}, status=404)
 
     json_data = json.loads(request.body)
-    expected_json_fields = ('graph', 'signature', 'graphFormat', 'createdOn')
+    if not config.disable_tp:
+        expected_json_fields = ('graph', 'signature', 'graphFormat', 'createdOn')
+    else:
+        expected_json_fields = ('graph', 'graphFormat')
     for field in expected_json_fields:
         if field not in json_data:
             return JsonResponse({"error": f"Mandatory field [{field}] not present in request!"}, status=400)
@@ -127,10 +146,11 @@ def store_graph(request, organization_id, graph_id, is_update=False):
         return JsonResponse({"error": f"Graph with id [{graph_id}] already "
                                       f"exists under organization [{organization_id}]."}, status=409)
 
-    resp = send_signature_verification_request(json_data.copy(), organization_id)
-    if not resp.ok:
-        return JsonResponse({"error": "Unverifiable signature."
-                                      " Make sure to register your certificate with trusted party first."}, status=401)
+    if not config.disable_tp:
+        resp = send_signature_verification_request(json_data.copy(), organization_id)
+        if not resp.ok:
+            return JsonResponse({"error": "Unverifiable signature."
+                                          " Make sure to register your certificate with trusted party first."}, status=401)
 
     try:
         validator.validate_graph()
@@ -140,29 +160,46 @@ def store_graph(request, organization_id, graph_id, is_update=False):
     controller.store_connectors(validator.get_forward_connectors(), validator.get_backward_connectors(),
                                 validator.get_bundle_id(), validator.get_meta_provenance_id(), organization_id)
 
-    tp_url = controller.get_TP_url_by_organization(organization_id)
-    payload = json_data.copy()
-    payload["organizationId"] = organization_id
-    payload["type"] = "graph"
-    payload["graphId"] = graph_id
-    token = controller.send_token_request_to_TP(payload, tp_url)
+    if not config.disable_tp:
+        tp_url = controller.get_TP_url_by_organization(organization_id)
+        payload = json_data.copy()
+        payload["organizationId"] = organization_id
+        payload["type"] = "graph"
+        payload["graphId"] = graph_id
+        token = controller.send_token_request_to_TP(payload, tp_url)
+    else:
+        token = get_dummy_token()
 
     document = validator.get_document()
     import_graph(document, json_data, copy.deepcopy(token), graph_id, validator.get_meta_provenance_id(), is_update)
-    controller.store_token_into_db(token, validator.get_bundle_id())
 
-    return JsonResponse({"token": token}, status=200)
+    if not config.disable_tp:
+        controller.store_token_into_db(token, validator.get_bundle_id())
+
+    if not config.disable_tp:
+        response = {"token": token}
+    else:
+        response = {"info": "Trusted party is disabled therefore no token has been issued, "
+                            "however graph has been stored."}
+
+    return JsonResponse(response, status=200)
 
 
 def get_graph(request, organization_id, graph_id):
     try:
         d = controller.get_provenance(organization_id, graph_id)
-        t = controller.get_token(organization_id, graph_id, d)
+        if not config.disable_tp:
+            t = controller.get_token(organization_id, graph_id, d)
     except DoesNotExist:
         return JsonResponse({"error": f"Graph with id [{graph_id}] does not "
                                       f"exist under organization [{organization_id}]."}, status=404)
 
-    return JsonResponse({"graph": d.graph, "token": t})
+    if not config.disable_tp:
+        response = {"graph": d.graph, "token": t}
+    else:
+        response = {"graph": d.graph}
+
+    return JsonResponse(response)
 
 
 @csrf_exempt
@@ -179,21 +216,25 @@ def graph_meta(request, meta_id):
     except DoesNotExist:
         return JsonResponse({"error": f"The meta-provenance with id [{meta_id}] does not exist."}, status=404)
 
-    if organization_id is not None:
-        tp_url = controller.get_TP_url_by_organization(organization_id)
+    if not config.disable_tp:
+        if organization_id is not None:
+            tp_url = controller.get_TP_url_by_organization(organization_id)
+        else:
+            tp_url = None
+
+        payload = {"graph": g,
+                   "createdOn": int(datetime.datetime.now().timestamp()),
+                   "type": "meta",
+                   "organizationId": config.id,
+                   "graphFormat": requested_format,
+                   "graphId": meta_id
+                   }
+        t = controller.send_token_request_to_TP(payload, tp_url)
+        response = {"graph": g, "token": t}
     else:
-        tp_url = None
+        response = {"graph": g}
 
-    payload = {"graph": g,
-               "createdOn": int(datetime.datetime.now().timestamp()),
-               "type": "meta",
-               "organizationId": config.id,
-               "graphFormat": requested_format,
-               "graphId": meta_id
-               }
-    t = controller.send_token_request_to_TP(payload, tp_url)
-
-    return JsonResponse({"graph": g, "token": t})
+    return JsonResponse(response)
 
 
 @csrf_exempt
@@ -220,16 +261,19 @@ def get_subgraph(request, organization_id, graph_id, is_domain_specific):
         try:
             g = controller.get_b64_encoded_subgraph(organization_id, graph_id, is_domain_specific, requested_format)
 
-            tp_url = controller.get_TP_url_by_organization(organization_id)
+            if not config.disable_tp:
+                tp_url = controller.get_TP_url_by_organization(organization_id)
 
-            payload = {"graph": g,
-                       "createdOn": int(datetime.datetime.now().timestamp()),
-                       "type": "domain_specific" if is_domain_specific else "backbone",
-                       "organizationId": organization_id,
-                       "graphFormat": requested_format,
-                       "graphId": graph_id
-                       }
-            t = controller.send_token_request_to_TP(payload, tp_url)
+                payload = {"graph": g,
+                           "createdOn": int(datetime.datetime.now().timestamp()),
+                           "type": "domain_specific" if is_domain_specific else "backbone",
+                           "organizationId": organization_id,
+                           "graphFormat": requested_format,
+                           "graphId": graph_id
+                           }
+                t = controller.send_token_request_to_TP(payload, tp_url)
+            else:
+                t = None
 
             suffix = "domain" if is_domain_specific else "backbone"
             controller.store_subgraph_into_db(f"{organization_id}_{graph_id}_{suffix}", requested_format, g, t)
@@ -237,7 +281,12 @@ def get_subgraph(request, organization_id, graph_id, is_domain_specific):
             return JsonResponse({"error": f"Graph with id [{graph_id}] does not "
                                           f"exist under organization [{organization_id}]."}, status=404)
 
-    return JsonResponse({"graph": g, "token": t})
+    if not config.disable_tp:
+        response = {"graph": g, "token": t}
+    else:
+        response = {"graph": g}
+
+    return JsonResponse(response)
 
 
 @csrf_exempt

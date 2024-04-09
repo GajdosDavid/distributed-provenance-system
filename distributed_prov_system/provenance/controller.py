@@ -36,21 +36,25 @@ def query_db_for_subgraph(organization_id, graph_id, requested_format, is_domain
     suffix = "domain" if is_domain_specific else "backbone"
 
     d = Document.nodes.get(identifier=f"{organization_id}_{graph_id}_{suffix}", format=requested_format)
-    tokens = list(d.belongs_to.all())
 
-    assert len(tokens) == 1, "Only one token expected per document!"
-    token = tokens[0]
-    t = {
-        "data": {
-            "originatorId": token.originator_id,
-            "authorityId": token.authority_id,
-            "tokenTimestamp": token.token_timestamp,
-            "messageTimestamp": token.message_timestamp,
-            "graphImprint": token.hash,
-            "additionalData": token.additional_data
-        },
-        "signature": token.signature
-    }
+    if not config.disable_tp:
+        tokens = list(d.belongs_to.all())
+
+        assert len(tokens) == 1, "Only one token expected per document!"
+        token = tokens[0]
+        t = {
+            "data": {
+                "originatorId": token.originator_id,
+                "authorityId": token.authority_id,
+                "tokenTimestamp": token.token_timestamp,
+                "messageTimestamp": token.message_timestamp,
+                "graphImprint": token.hash,
+                "additionalData": token.additional_data
+            },
+            "signature": token.signature
+        }
+    else:
+        t = None
 
     return d.graph, t
 
@@ -62,7 +66,8 @@ def store_subgraph_into_db(document_id, format, graph, token):
     d.graph = graph
     d.save()
 
-    store_token_into_db(token, None, d)
+    if token is not None:
+        store_token_into_db(token, None, d)
 
 
 def store_token_into_db(token, document_id=None, neo_document=None):
