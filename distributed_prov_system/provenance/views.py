@@ -182,7 +182,7 @@ def store_graph(request, organization_id, graph_id, is_update=False):
         response = {"info": "Trusted party is disabled therefore no token has been issued, "
                             "however graph has been stored."}
 
-    return JsonResponse(response, status=200)
+    return JsonResponse(response, status=201)
 
 
 def get_graph(request, organization_id, graph_id):
