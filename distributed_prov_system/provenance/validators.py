@@ -260,9 +260,7 @@ class InputGraphChecker:
             raise DocumentError(f"MainActivity PID resolves to incorrect path [{parsed_url.path}]. "
                                 f"Expected: /api/v1/graphs/meta/")
 
-        print(parsed_url.path)
         out = parsed_url.path.split('/')[-1]
-        print(out)
         return out
 
     def _retrieve_main_activity(self):

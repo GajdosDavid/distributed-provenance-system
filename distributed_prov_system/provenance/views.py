@@ -96,21 +96,21 @@ def modify_org(request, organization_id):
     if resp.status_code == 401:
         return JsonResponse({"error": f"Trusted party was unable to verify certificate chain!"}, status=401)
 
-    return HttpResponse(status=201)
+    return HttpResponse(status=200)
 
 
 @csrf_exempt
 @require_http_methods(["GET", "POST", "PUT"])
-def graph(request, organization_id, graph_id):
+def document(request, organization_id, document_id):
     if request.method == 'POST':
-        return store_graph(request, organization_id, graph_id)
+        return store_graph(request, organization_id, document_id)
     elif request.method == "PUT":
-        return store_graph(request, organization_id, graph_id, is_update=True)
+        return store_graph(request, organization_id, document_id, is_update=True)
     else:
-        return get_graph(request, organization_id, graph_id)
+        return get_graph(request, organization_id, document_id)
 
 
-def store_graph(request, organization_id, graph_id, is_update=False):
+def store_graph(request, organization_id, document_id, is_update=False):
     if not config.disable_tp:
         try:
             check_organization_is_registered(organization_id)
@@ -119,31 +119,31 @@ def store_graph(request, organization_id, graph_id, is_update=False):
 
     json_data = json.loads(request.body)
     if not config.disable_tp:
-        expected_json_fields = ('graph', 'signature', 'graphFormat', 'createdOn')
+        expected_json_fields = ('document', 'signature', 'documentFormat', 'createdOn')
     else:
-        expected_json_fields = ('graph', 'graphFormat')
+        expected_json_fields = ('document', 'documentFormat')
     for field in expected_json_fields:
         if field not in json_data:
             return JsonResponse({"error": f"Mandatory field [{field}] not present in request!"}, status=400)
 
-    validator = InputGraphChecker(json_data['graph'], json_data['graphFormat'])
+    validator = InputGraphChecker(json_data['document'], json_data['documentFormat'])
     try:
         validator.parse_graph()
         if is_update:
-            check_graph_id_belongs_to_meta(validator.get_meta_provenance_id(), graph_id, organization_id)
-            if not graph_exists(organization_id, graph_id):
-                return JsonResponse({"error": f"Graph with id [{graph_id}] does not exist. Please check whether the ID"
+            check_graph_id_belongs_to_meta(validator.get_meta_provenance_id(), document_id, organization_id)
+            if not graph_exists(organization_id, document_id):
+                return JsonResponse({"error": f"Document with id [{document_id}] does not exist. Please check whether the ID"
                                               f" you have given is correct."}, status=404)
         else:
-            validator.check_ids_match(graph_id)
+            validator.check_ids_match(document_id)
     except DoesNotExist:
-        return JsonResponse({"error": f"Graph with id [{graph_id}] does not "
+        return JsonResponse({"error": f"Document with id [{document_id}] does not "
                                       f"exist under organization [{organization_id}]."}, status=404)
     except DocumentError as e:
         return JsonResponse({"error": str(e)}, status=400)
 
     if graph_exists(organization_id, validator.get_bundle_id()):
-        return JsonResponse({"error": f"Graph with id [{graph_id}] already "
+        return JsonResponse({"error": f"Document with id [{document_id}] already "
                                       f"exists under organization [{organization_id}]."}, status=409)
 
     if not config.disable_tp:
@@ -165,13 +165,13 @@ def store_graph(request, organization_id, graph_id, is_update=False):
         payload = json_data.copy()
         payload["organizationId"] = organization_id
         payload["type"] = "graph"
-        payload["graphId"] = graph_id
+        payload["graphId"] = document_id
         token = controller.send_token_request_to_TP(payload, tp_url)
     else:
         token = get_dummy_token()
 
     document = validator.get_document()
-    import_graph(document, json_data, copy.deepcopy(token), graph_id, validator.get_meta_provenance_id(), is_update)
+    import_graph(document, json_data, copy.deepcopy(token), document_id, validator.get_meta_provenance_id(), is_update)
 
     if not config.disable_tp:
         controller.store_token_into_db(token, validator.get_bundle_id())
@@ -185,19 +185,19 @@ def store_graph(request, organization_id, graph_id, is_update=False):
     return JsonResponse(response, status=201)
 
 
-def get_graph(request, organization_id, graph_id):
+def get_graph(request, organization_id, document_id):
     try:
-        d = controller.get_provenance(organization_id, graph_id)
+        d = controller.get_provenance(organization_id, document_id)
         if not config.disable_tp:
-            t = controller.get_token(organization_id, graph_id, d)
+            t = controller.get_token(organization_id, document_id, d)
     except DoesNotExist:
-        return JsonResponse({"error": f"Graph with id [{graph_id}] does not "
+        return JsonResponse({"error": f"Document with id [{document_id}] does not "
                                       f"exist under organization [{organization_id}]."}, status=404)
 
     if not config.disable_tp:
-        response = {"graph": d.graph, "token": t}
+        response = {"document": d.graph, "token": t}
     else:
-        response = {"graph": d.graph}
+        response = {"document": d.graph}
 
     return JsonResponse(response)
 
@@ -239,27 +239,27 @@ def graph_meta(request, meta_id):
 
 @csrf_exempt
 @require_GET
-def graph_domain_specific(request, organization_id, graph_id):
-    return get_subgraph(request, organization_id, graph_id, True)
+def graph_domain_specific(request, organization_id, document_id):
+    return get_subgraph(request, organization_id, document_id, True)
 
 
 @csrf_exempt
 @require_GET
-def graph_backbone(request, organization_id, graph_id):
-    return get_subgraph(request, organization_id, graph_id, False)
+def graph_backbone(request, organization_id, document_id):
+    return get_subgraph(request, organization_id, document_id, False)
 
 
-def get_subgraph(request, organization_id, graph_id, is_domain_specific):
+def get_subgraph(request, organization_id, document_id, is_domain_specific):
     requested_format = request.GET.get('format', 'rdf')
 
     if requested_format not in ('rdf', 'json', 'xml', 'provn'):
         return JsonResponse({"error": f"Requested format [{requested_format}] is not supported!"}, status=400)
 
     try:
-        g, t = controller.query_db_for_subgraph(organization_id, graph_id, requested_format, is_domain_specific)
+        g, t = controller.query_db_for_subgraph(organization_id, document_id, requested_format, is_domain_specific)
     except DoesNotExist:
         try:
-            g = controller.get_b64_encoded_subgraph(organization_id, graph_id, is_domain_specific, requested_format)
+            g = controller.get_b64_encoded_subgraph(organization_id, document_id, is_domain_specific, requested_format)
 
             if not config.disable_tp:
                 tp_url = controller.get_TP_url_by_organization(organization_id)
@@ -269,22 +269,22 @@ def get_subgraph(request, organization_id, graph_id, is_domain_specific):
                            "type": "domain_specific" if is_domain_specific else "backbone",
                            "organizationId": organization_id,
                            "graphFormat": requested_format,
-                           "graphId": graph_id
+                           "graphId": document_id
                            }
                 t = controller.send_token_request_to_TP(payload, tp_url)
             else:
                 t = None
 
             suffix = "domain" if is_domain_specific else "backbone"
-            controller.store_subgraph_into_db(f"{organization_id}_{graph_id}_{suffix}", requested_format, g, t)
+            controller.store_subgraph_into_db(f"{organization_id}_{document_id}_{suffix}", requested_format, g, t)
         except DoesNotExist:
-            return JsonResponse({"error": f"Graph with id [{graph_id}] does not "
+            return JsonResponse({"error": f"Document with id [{document_id}] does not "
                                           f"exist under organization [{organization_id}]."}, status=404)
 
     if not config.disable_tp:
-        response = {"graph": g, "token": t}
+        response = {"document": g, "token": t}
     else:
-        response = {"graph": g}
+        response = {"document": g}
 
     return JsonResponse(response)
 
@@ -309,7 +309,7 @@ def connector_retrieve(request, connector_id):
     except DoesNotExist:
         return JsonResponse({"error": f"The table for connector with id [{connector_id}] does not exist."}, status=404)
 
-    return JsonResponse({"graph": g})
+    return JsonResponse({"document": g})
 
 
 def connector_store(request, connector_id):
