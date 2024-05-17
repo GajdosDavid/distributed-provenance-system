@@ -179,11 +179,13 @@ def retrieve_tokens(org_id):
                     "originatorId": org.org_name,
                     "authorityId": config.id,
                     "tokenTimestamp": token.created_on,
-                    "messageTimestamp": doc.created_on,
-                    "graphImprint": token.hash,
+                    "documentCreationTimestamp": doc.created_on,
+                    "documentDigest": token.hash,
                     "additionalData": {
+                        "bundleId": doc.identifier,
                         "hashFunction": "SHA256",
-                        "trustedPartyUri": config.fqdn
+                        "trustedPartyUri": config.fqdn,
+                        "trustedPartyCertificate": config.cert
                     }
                 },
                 "signature": token.signature
@@ -205,11 +207,13 @@ def retrieve_specific_token(org_id, doc_id, doc_type="graph"):
                 "originatorId": org.org_name,
                 "authorityId": config.id,
                 "tokenTimestamp": token.created_on,
-                "messageTimestamp": doc.created_on,
-                "graphImprint": token.hash,
+                "documentCreationTimestamp": doc.created_on,
+                "documentDigest": token.hash,
                 "additionalData": {
+                    "bundleId": doc.identifier,
                     "hashFunction": "SHA256",
-                    "trustedPartyUri": config.fqdn
+                    "trustedPartyUri": config.fqdn,
+                    "trustedPartyCertificate": config.cert
                 }
             },
             "signature": token.signature
@@ -221,7 +225,7 @@ def retrieve_specific_token(org_id, doc_id, doc_type="graph"):
 
 def verify_signature(json_data):
     org_id = json_data['organizationId']
-    graph = json_data['graph']
+    graph = json_data['document']
     signature = json_data['signature']
 
     org = Organization.objects.filter(org_name=org_id).first()
@@ -238,9 +242,9 @@ def verify_signature(json_data):
     )
 
 
-def get_serialized_token(json_data):
+def get_serialized_token(json_data, bundle_id):
     digest = hashes.Hash(hashes.SHA256())
-    digest.update(base64.b64decode(json_data['graph']))
+    digest.update(base64.b64decode(json_data['document']))
     hash = digest.finalize().hex()
 
     serialized_token = {
@@ -248,11 +252,13 @@ def get_serialized_token(json_data):
             "originatorId": json_data['organizationId'],
             "authorityId": config.id,
             "tokenTimestamp": int(datetime.now().timestamp()),
-            "messageTimestamp": json_data['createdOn'],
-            "graphImprint": hash,
+            "documentCreationTimestamp": json_data['createdOn'],
+            "documentDigest": hash,
             "additionalData": {
+                "bundleId": bundle_id,
                 "hashFunction": "SHA256",
-                "trustedPartyUri": config.fqdn
+                "trustedPartyUri": config.fqdn,
+                "trustedPartyCertificate": config.cert
             }
         }
     }
@@ -269,10 +275,10 @@ def get_serialized_token(json_data):
 
 
 def create_new_token(json_data, doc: Document):
-    serialized_token = get_serialized_token(json_data)
+    serialized_token = get_serialized_token(json_data, doc.identifier)
 
     t = Token()
-    t.hash = serialized_token['data']['graphImprint']
+    t.hash = serialized_token['data']['documentDigest']
     t.hash_function = "SHA256"
     t.document = doc
     t.created_on = serialized_token['data']['tokenTimestamp']
@@ -288,21 +294,21 @@ def check_is_subgraph(prov_bundle: ProvBundle):
 
 
 def issue_token_and_store_doc(json_data):
-   # graph = base64.b64decode(json_data['graph'])
-   # prov_document = ProvDocument.deserialize(content=graph, format=json_data['graphFormat'])
+    graph = base64.b64decode(json_data['document'])
+    prov_document = ProvDocument.deserialize(content=graph, format=json_data['documentFormat'])
 
-    #assert len(prov_document.bundles) == 1, 'Only one bundle expected in the document!'
-   # prov_bundle = list(prov_document.bundles)[0]
+    assert len(prov_document.bundles) == 1, 'Only one bundle expected in the document!'
+    prov_bundle = list(prov_document.bundles)[0]
 
     if json_data['type'] in ('domain_specific', 'backbone'):
         pass
       #  check_is_subgraph(prov_bundle)
 
     if json_data['type'] == 'meta':
-        return get_serialized_token(json_data)
+        return get_serialized_token(json_data, prov_bundle.identifier.uri)
 
     try:
-        tokens = retrieve_specific_token(json_data['organizationId'], json_data['graphId'],
+        tokens = retrieve_specific_token(json_data['organizationId'], prov_bundle.identifier.uri,
                                          json_data['type'])
 
         return tokens
@@ -311,11 +317,11 @@ def issue_token_and_store_doc(json_data):
         cert = Certificate.objects.filter(organization=org, is_revoked=False).first()
 
         d = Document()
-        d.identifier = json_data['graphId']
+        d.identifier = prov_bundle.identifier.uri
         d.certificate = cert
         d.organization = org
         d.document_type = json_data['type']
-        d.document_text = json_data['graph']
+        d.document_text = json_data['document']
         d.created_on = json_data['createdOn']
         if json_data['type'] == 'graph':
             d.signature = json_data['signature']

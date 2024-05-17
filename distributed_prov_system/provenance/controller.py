@@ -47,8 +47,8 @@ def query_db_for_subgraph(organization_id, graph_id, requested_format, is_domain
                 "originatorId": token.originator_id,
                 "authorityId": token.authority_id,
                 "tokenTimestamp": token.token_timestamp,
-                "messageTimestamp": token.message_timestamp,
-                "graphImprint": token.hash,
+                "documentCreationTimestamp": token.message_timestamp,
+                "documentDigest": token.hash,
                 "additionalData": token.additional_data
             },
             "signature": token.signature
@@ -75,11 +75,11 @@ def store_token_into_db(token, document_id=None, neo_document=None):
 
     t = Token()
     t.signature = token['signature']
-    t.hash = token['data']['graphImprint']
+    t.hash = token['data']['documentDigest']
     t.originator_id = token['data']['originatorId']
     t.authority_id = token['data']['authorityId']
     t.token_timestamp = token['data']['tokenTimestamp']
-    t.message_timestamp = token['data']['messageTimestamp']
+    t.message_timestamp = token['data']['documentCreationTimestamp']
     t.additional_data = token['data']['additionalData']
 
     t.save()
@@ -137,8 +137,8 @@ def get_token(organization_id, graph_id, document):
         "originatorId": t.originator_id,
         "authorityId": t.authority_id,
         "tokenTimestamp": t.token_timestamp,
-        "messageTimestamp": t.message_timestamp,
-        "graphImprint": t.hash,
+        "documentCreationTimestamp": t.message_timestamp,
+        "documentDigest": t.hash,
         "additionalData": t.additional_data
     }
     return {"data": token_data, "signature": t.signature}

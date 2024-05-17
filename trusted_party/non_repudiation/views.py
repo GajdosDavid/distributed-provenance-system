@@ -103,7 +103,7 @@ def update_certificate(request, org_id):
         Organization.objects.get(org_name=org_id)
         controller.verify_chain_of_trust(json_data['clientCertificate'], json_data['intermediateCertificates'])
     except ObjectDoesNotExist:
-        return JsonResponse({"error": f"Organization with id [{org_id}] does not exist!"})
+        return JsonResponse({"error": f"Organization with id [{org_id}] does not exist!"}, status=404)
     except X509StoreContextError:
         return JsonResponse({"error": f"Could not verify the chain of trust!"}, status=401)
 
@@ -120,7 +120,7 @@ def retrieve_document(request, org_id, doc_id):
     except ObjectDoesNotExist:
         return JsonResponse({"error": f"No document wih id [{doc_id}] exists for organization [{org_id}]"}, status=404)
 
-    return JsonResponse({"graph": doc.document_text, "signature": doc.signature})
+    return JsonResponse({"document": doc.document_text, "signature": doc.signature})
 
 
 @csrf_exempt
@@ -143,7 +143,7 @@ def specific_token(request, org_id, doc_id):
     try:
         Organization.objects.get(org_name=org_id)
     except ObjectDoesNotExist:
-        return JsonResponse({"error": f"Organization with id [{org_id}] does not exist!"})
+        return JsonResponse({"error": f"Organization with id [{org_id}] does not exist!"}, status=404)
 
     try:
         token = controller.retrieve_specific_token(org_id, doc_id)
@@ -157,7 +157,7 @@ def specific_token(request, org_id, doc_id):
 @require_POST
 def issue_token(request):
     json_data = json.loads(request.body)
-    expected_json_fields = ('organizationId', 'graph', 'graphFormat', 'type', 'createdOn')
+    expected_json_fields = ('organizationId', 'document', 'documentFormat', 'type', 'createdOn')
     for field in expected_json_fields:
         if field not in json_data:
             return JsonResponse({"error": f"Mandatory field [{field}] not present in request!"}, status=400)
@@ -194,7 +194,7 @@ def issue_token(request):
 @require_POST
 def verify_signature(request):
     json_data = json.loads(request.body)
-    expected_json_fields = ('organizationId', 'graph', 'signature')
+    expected_json_fields = ('organizationId', 'document', 'signature')
     for field in expected_json_fields:
         if field not in json_data:
             return JsonResponse({"error": f"Mandatory field [{field}] not present in request!"}, status=400)
@@ -202,7 +202,7 @@ def verify_signature(request):
     try:
         Organization.objects.get(org_name=json_data['organizationId'])
     except ObjectDoesNotExist:
-        return JsonResponse({"error": f"Organization with id [{json_data['organizationId']}] does not exist!"})
+        return JsonResponse({"error": f"Organization with id [{json_data['organizationId']}] does not exist!"}, status=404)
 
     try:
         controller.verify_signature(json_data)

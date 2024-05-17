@@ -17,8 +17,8 @@ def import_graph(document: ProvDocument, json_data, token, graph_id, meta_id, is
 
         neo_document = Document()
         neo_document.identifier = identifier
-        neo_document.graph = json_data['graph']
-        neo_document.format = json_data['graphFormat']
+        neo_document.graph = json_data['document']
+        neo_document.format = json_data['documentFormat']
         neo_document.save()
 
         if is_update:

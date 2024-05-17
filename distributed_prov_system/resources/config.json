@@ -2,5 +2,5 @@
   "id": "superDuperStorage",
   "fqdn": "127.0.1.1:8000",
   "trustedPartyFqdn": "127.0.1.1:8020",
-  "disableTrustedParty": true
+  "disableTrustedParty": false
 }

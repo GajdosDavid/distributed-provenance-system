@@ -35,8 +35,8 @@ def get_dummy_token():
                 "originatorId": "ORG",
                 "authorityId": "TrustedParty",
                 "tokenTimestamp": 0,
-                "messageTimestamp": 0,
-                "graphImprint": "17fd7484d7cac628cfa43c348fe05a009a81d18c8a778e6488b707954addf2a3"
+                "documentCreationTimestamp": 0,
+                "documentDigest": "17fd7484d7cac628cfa43c348fe05a009a81d18c8a778e6488b707954addf2a3"
                 },
             "signature": "bdysXEy2/sOSTN+Lh+v3x7cTdocMcndwuW5OT2wHpQOU/LM4os9Bow0sn4HTln9hRqFdCMukV6Cr6Nn8XvD96jlgEw9KqJj9I+cfBL81x9iqUJX/Wder3lkuIZXYUSeGsOOqUPdlqJAhapgr0V+vibAvPGoiRKqulNi/Xn0jn21lln1HEbHPsnOtM5Ca5wwXuTITJsiXCj+04y9V/XM9Uy9Ib4LLA1VYLCdifjg0ZuxJBcpS/HszlwW9B29rrkUGUsSrV9YU0ViYkeIMcS2bMXsur3EHi3/zSZ5IepUNOBDTu3BDUr33dbrgMOVraI8RU5DTZKmUOx8hzgtApZNotg=="
             }
@@ -57,7 +57,7 @@ def register(request, organization_id):
 def register_org(request, organization_id):
     if is_org_registered(organization_id):
         return JsonResponse({"error": f"Organization with id [{organization_id}] is already registered. "
-                                      f"If you want to modify it, send PUT request!"}, status=404)
+                                      f"If you want to modify it, send PUT request!"}, status=409)
 
     json_data = json.loads(request.body)
     expected_json_fields = ('clientCertificate', 'intermediateCertificates')
@@ -65,14 +65,14 @@ def register_org(request, organization_id):
         if field not in json_data:
             return JsonResponse({"error": f"Mandatory field [{field}] not present in request!"}, status=400)
 
+    resp = send_register_request_to_TP(json_data, organization_id)
+    if resp.status_code == 401:
+        return JsonResponse({"error": f"Trusted party was unable to verify certificate chain!"}, status=401)
+
     controller.store_organization(organization_id,
                                   json_data['clientCertificate'],
                                   json_data['intermediateCertificates'],
                                   json_data['TrustedPartyUri'] if 'TrustedPartyUri' in json_data else None)
-
-    resp = send_register_request_to_TP(json_data, organization_id)
-    if resp.status_code == 401:
-        return JsonResponse({"error": f"Trusted party was unable to verify certificate chain!"}, status=401)
 
     return HttpResponse(status=201)
 
