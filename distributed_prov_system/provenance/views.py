@@ -222,11 +222,11 @@ def graph_meta(request, meta_id):
         else:
             tp_url = None
 
-        payload = {"graph": g,
+        payload = {"document": g,
                    "createdOn": int(datetime.datetime.now().timestamp()),
                    "type": "meta",
                    "organizationId": config.id,
-                   "graphFormat": requested_format,
+                   "documentFormat": requested_format,
                    "graphId": meta_id
                    }
         t = controller.send_token_request_to_TP(payload, tp_url)
@@ -264,11 +264,11 @@ def get_subgraph(request, organization_id, document_id, is_domain_specific):
             if not config.disable_tp:
                 tp_url = controller.get_TP_url_by_organization(organization_id)
 
-                payload = {"graph": g,
+                payload = {"document": g,
                            "createdOn": int(datetime.datetime.now().timestamp()),
                            "type": "domain_specific" if is_domain_specific else "backbone",
                            "organizationId": organization_id,
-                           "graphFormat": requested_format,
+                           "documentFormat": requested_format,
                            "graphId": document_id
                            }
                 t = controller.send_token_request_to_TP(payload, tp_url)

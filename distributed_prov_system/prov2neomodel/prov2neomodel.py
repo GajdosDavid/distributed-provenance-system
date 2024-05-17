@@ -92,13 +92,13 @@ def store_token_into_meta(meta_bundle, entity, token):
     e.identifier = f"{entity.identifier}_token"
     e.attributes = token_attributes
 
-    agent = get_TP_agent(meta_bundle, token['authorityId'])
+    agent = get_TP_agent(meta_bundle, token)
 
     activity = Activity()
-    activity.identifier = f"{entity.identifier}_signing"
+    activity.identifier = f"{entity.identifier}_tokenGeneration"
     activity.start_time = datetime.fromtimestamp(token['tokenTimestamp'])
     activity.end_time = activity.start_time
-    activity.attributes = {"prov:type": 'cpm:signing'}
+    activity.attributes = {"prov:type": 'cpm:tokenGeneration'}
 
     activity.save()
     e.save()
@@ -111,7 +111,8 @@ def store_token_into_meta(meta_bundle, entity, token):
     e.was_attributed_to.connect(agent)
 
 
-def get_TP_agent(meta_bundle, authority_id):
+def get_TP_agent(meta_bundle, token):
+    authority_id = token['authorityId']
     definition = dict(node_class=Agent, direction=OUTGOING,
                       relation_type="contains", model=None)
     traversal = Traversal(meta_bundle, Agent.__label__, definition)
@@ -125,8 +126,12 @@ def get_TP_agent(meta_bundle, authority_id):
     if agent is None:
         agent = Agent()
         agent.identifier = authority_id
-        agent.attributes = {"prov:type": 'cpm:trustedParty'}
+        attrs = {"prov:type": 'cpm:trustedParty',
+                            "cpm:trustedPartyUri": token['additionalData']['trustedPartyUri']}
+        if 'trustedPartyCertificate' in token['additionalData']:
+            attrs.update({"cpm:trustedPartyCertificate": token['additionalData']['trustedPartyCertificate']})
 
+        agent.attributes = attrs
         agent.save()
         meta_bundle.contains.connect(agent)
 
