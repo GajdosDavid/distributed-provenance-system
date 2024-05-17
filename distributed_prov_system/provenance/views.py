@@ -9,7 +9,7 @@ from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods, require_GET
 from neomodel.exceptions import DoesNotExist
-from prov2neomodel.prov2neomodel import import_graph
+from .prov2neomodel import import_graph
 
 from .validators import (InputGraphChecker, graph_exists, check_graph_id_belongs_to_meta,
                          IncorrectPIDs, HasNoBundles, TooManyBundles, DocumentError, is_org_registered,

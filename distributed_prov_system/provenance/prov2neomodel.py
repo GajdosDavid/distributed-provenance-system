@@ -1,6 +1,6 @@
 from datetime import datetime
 from prov.model import ProvDocument
-from provenance.models import Bundle, Entity, Document, Activity, Agent
+from .models import Bundle, Entity, Document, Activity, Agent
 from neomodel.exceptions import DoesNotExist
 from neomodel.match import Traversal, OUTGOING
 

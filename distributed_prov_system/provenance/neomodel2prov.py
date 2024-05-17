@@ -1,7 +1,7 @@
 from prov.model import ProvDocument, ProvBundle, ProvActivity, ProvAgent, QualifiedName, Namespace, ProvEntity
 from distributed_prov_system.settings import config
 from neomodel.match import Traversal, INCOMING, OUTGOING
-from provenance.models import Entity, Activity, Agent
+from .models import Entity, Activity, Agent
 
 DEFAULT_NAMESPACE = config.fqdn
 

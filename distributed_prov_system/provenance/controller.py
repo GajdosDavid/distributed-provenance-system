@@ -2,7 +2,7 @@ import base64
 import json
 
 from .models import Document, Entity, Bundle, Token, Organization, TrustedParty, DefaultTrustedParty
-from prov2neomodel.neomodel2prov import convert_meta_to_prov, convert_connector_table_to_prov
+from .neomodel2prov import convert_meta_to_prov, convert_connector_table_to_prov
 from prov.model import ProvDocument, ProvBundle
 from base64 import b64decode, b64encode
 from neomodel.match import Traversal, INCOMING
@@ -11,7 +11,6 @@ from neomodel import db
 from distributed_prov_system.settings import config
 from .validators import is_org_registered
 import requests
-from datetime import datetime
 
 
 def send_token_request_to_TP(payload, tp_url=None):

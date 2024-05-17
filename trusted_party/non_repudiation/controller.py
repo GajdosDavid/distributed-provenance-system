@@ -182,7 +182,7 @@ def retrieve_tokens(org_id):
                     "documentCreationTimestamp": doc.created_on,
                     "documentDigest": token.hash,
                     "additionalData": {
-                        "bundleId": doc.identifier,
+                        "bundle": doc.identifier,
                         "hashFunction": "SHA256",
                         "trustedPartyUri": config.fqdn,
                         "trustedPartyCertificate": config.cert
@@ -210,7 +210,7 @@ def retrieve_specific_token(org_id, doc_id, doc_type="graph"):
                 "documentCreationTimestamp": doc.created_on,
                 "documentDigest": token.hash,
                 "additionalData": {
-                    "bundleId": doc.identifier,
+                    "bundle": doc.identifier,
                     "hashFunction": "SHA256",
                     "trustedPartyUri": config.fqdn,
                     "trustedPartyCertificate": config.cert
@@ -255,7 +255,7 @@ def get_serialized_token(json_data, bundle_id):
             "documentCreationTimestamp": json_data['createdOn'],
             "documentDigest": hash,
             "additionalData": {
-                "bundleId": bundle_id,
+                "bundle": bundle_id,
                 "hashFunction": "SHA256",
                 "trustedPartyUri": config.fqdn,
                 "trustedPartyCertificate": config.cert

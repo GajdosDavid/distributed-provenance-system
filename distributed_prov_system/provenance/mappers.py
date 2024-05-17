@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from prov.model import *
-from provenance.models import *
+from .models import *
 
 
 def convert_tuple_list_to_dict(tuple_list: list) -> dict:
