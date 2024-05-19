@@ -7,7 +7,7 @@ DEFAULT_NAMESPACE = config.fqdn
 
 NAMESPACES = {
     "prov": Namespace("prov", "http://www.w3.org/ns/prov#"),
-    "meta": Namespace("meta", DEFAULT_NAMESPACE + f"/api/v1/graphs/meta/"),
+    "meta": Namespace("meta", DEFAULT_NAMESPACE + f"/api/v1/documents/meta/"),
     "pav": Namespace("pav", "http://purl.org/pav/"),
     "cpm": Namespace("cpm", "https://www.commonprovenancemodel.org/cpm-namespace-v1-0/"),
     "connectors": Namespace("connectors", DEFAULT_NAMESPACE + "/api/v1/connectors/")

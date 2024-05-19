@@ -147,7 +147,8 @@ def store_graph(request, organization_id, document_id, is_update=False):
                                       f"exists under organization [{organization_id}]."}, status=409)
 
     if not config.disable_tp:
-        resp = send_signature_verification_request(json_data.copy(), organization_id)
+        tp_url = controller.get_TP_url_by_organization(organization_id)
+        resp = send_signature_verification_request(json_data.copy(), organization_id, tp_url)
         if not resp.ok:
             return JsonResponse({"error": "Unverifiable signature."
                                           " Make sure to register your certificate with trusted party first."}, status=401)

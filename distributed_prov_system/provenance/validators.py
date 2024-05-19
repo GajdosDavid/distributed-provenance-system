@@ -99,8 +99,11 @@ def check_graph_id_belongs_to_meta(meta_provenance_id, graph_id, organization_id
                             f" however main_activity from given bundle is resolvable to different id [{meta_provenance_id}]")
 
 
-def send_signature_verification_request(payload, organization_id):
-    url = 'http://' + config.tp_fqdn + '/api/v1/verifySignature'
+def send_signature_verification_request(payload, organization_id, tp_url=None):
+    if tp_url is None:
+        tp_url = config.tp_fqdn
+
+    url = 'http://' + tp_url + '/api/v1/verifySignature'
 
     payload['organizationId'] = organization_id
     resp = requests.post(url, json.dumps(payload))
@@ -256,9 +259,9 @@ class InputGraphChecker:
             raise DocumentError(f"MainActivity PID is expected to be resolvable to this server's "
                                 f"IP address, however it resolved to [{ip}]")
 
-        if "/api/v1/graphs/meta/" not in parsed_url.path:
+        if "/api/v1/documents/meta/" not in parsed_url.path:
             raise DocumentError(f"MainActivity PID resolves to incorrect path [{parsed_url.path}]. "
-                                f"Expected: /api/v1/graphs/meta/")
+                                f"Expected: /api/v1/documents/meta/")
 
         out = parsed_url.path.split('/')[-1]
         return out

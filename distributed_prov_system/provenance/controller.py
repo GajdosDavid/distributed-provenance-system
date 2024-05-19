@@ -327,7 +327,6 @@ def store_backward_connector(connector_bundle_id, sender_bundle_id, org_id, sour
     traversal = Traversal(ent, Bundle.__label__, definition)
     meta = traversal.all()[0]
 
-    print(source_meta)
     sender_bundle_org = ent.identifier.split('_')
     attrs = {"prov:type": "cpm:backwardConnector",
              "cpm:senderBundleId": f"{sender_bundle_org[0]}:{sender_bundle_id}",
