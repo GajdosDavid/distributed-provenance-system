@@ -1,4 +1,7 @@
 import json
+import sys
+from django.core.validators import URLValidator
+from django.core.exceptions import ValidationError
 
 
 class Config:
@@ -29,9 +32,23 @@ class Config:
             for field in required_config_fields:
                 assert field in config, f"{field} missing in config!"
 
+            try:
+                val = URLValidator()
+                val(config['trustedPartyFqdn'])
+            except ValidationError:
+                print(f"Invalid URI `{config['trustedPartyFqdn']}`!", file=sys.stderr)
+                sys.exit(1)
+
             self.tp_fqdn = config['trustedPartyFqdn']
             if self.tp_fqdn[-1] == '/':
                 self.tp_fqdn = self.tp_fqdn[:-1]
+
+        try:
+            val = URLValidator()
+            val(config['fqdn'])
+        except ValidationError:
+            print(f"Invalid URI `{config['fqdn']}`!", file=sys.stderr)
+            sys.exit(1)
 
         self.fqdn = config['fqdn']
         if self.fqdn[-1] == '/':
