@@ -103,7 +103,7 @@ def send_signature_verification_request(payload, organization_id, tp_url=None):
     if tp_url is None:
         tp_url = config.tp_fqdn
 
-    url = 'http://' + tp_url + '/api/v1/verifySignature'
+    url = tp_url + '/api/v1/verifySignature'
 
     payload['organizationId'] = organization_id
     resp = requests.post(url, json.dumps(payload))

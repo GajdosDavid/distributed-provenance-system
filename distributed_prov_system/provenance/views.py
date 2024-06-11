@@ -19,7 +19,7 @@ from .validators import (InputGraphChecker, graph_exists, check_graph_id_belongs
 
 def send_register_request_to_TP(payload, organization_id, is_post=True):
     tp_url = payload['TrustedPartyUri'] if 'TrustedPartyUri' in payload else config.tp_fqdn
-    url = 'http://' + tp_url + f'/api/v1/organizations/{organization_id}'
+    url = tp_url + f'/api/v1/organizations/{organization_id}'
     payload['organizationId'] = organization_id
 
     if is_post:

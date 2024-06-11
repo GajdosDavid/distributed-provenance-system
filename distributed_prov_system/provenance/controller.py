@@ -17,7 +17,7 @@ def send_token_request_to_TP(payload, tp_url=None):
     if tp_url is None:
         tp_url = config.tp_fqdn
 
-    url = 'http://' + tp_url + '/api/v1/issueToken'
+    url = tp_url + '/api/v1/issueToken'
     resp = requests.post(url, json.dumps(payload))
 
     assert resp.ok, (f'Could not issue token, status code={resp.status_code},'
@@ -289,7 +289,7 @@ def get_TP(url):
 
         return tp
 
-    resp = requests.get(f'http://{url}/api/v1/info')
+    resp = requests.get(f'{url}/api/v1/info')
 
     assert resp.ok, "Couldn't retrieve info from TP!"
     info = json.loads(resp.content)

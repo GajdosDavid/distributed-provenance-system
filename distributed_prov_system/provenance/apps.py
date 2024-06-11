@@ -12,7 +12,7 @@ class ProvenanceConfig(AppConfig):
 
     def ready(self):
         if not config.disable_tp:
-            resp = requests.get(f'http://{config.tp_fqdn}/api/v1/info')
+            resp = requests.get(f'{config.tp_fqdn}/api/v1/info')
 
             assert resp.ok, "Couldn't retrieve info from TP!"
             info = json.loads(resp.content)
